@@ -165,6 +165,7 @@ export interface CourseRecommendation {
 export interface SwapQueueDiagnostic {
   isPairedRecommended: boolean;
   swapType: "single" | "cohort";
+  recommendedReason: string;
   legs: AutoSwapProposalLeg[];
   cohortAlternative?: {
     givingUpCohort: CohortName;

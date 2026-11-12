@@ -626,6 +626,7 @@ export function App() {
 
                 {(activeSemester === "Y1_Spring" ||
                   (autoSwapDiag?.legs.length ?? 0) > 0 ||
+                  Boolean(autoSwapDiag?.cohortAlternative) ||
                   matches.some((m) => m.status === "matched" || m.status === "submitted") ||
                   requests.some((r) => r.status === "matched" || r.status === "submitted")) && (
                   <AutoSwapTray

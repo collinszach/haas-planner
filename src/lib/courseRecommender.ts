@@ -344,6 +344,7 @@ export function autoGenerateSwapsFromPlan(params: {
     return {
       isPairedRecommended: false,
       swapType: "single",
+      recommendedReason: "",
       legs: [],
       conflictingElectivesOrBlocks: [],
       hasZeroConflictSwap: true,
@@ -462,6 +463,18 @@ export function autoGenerateSwapsFromPlan(params: {
     }
   }
 
+  const liqForPair = (givingUpKey: string, wantedKey: string) =>
+    marketPulse
+      .filter((m) => m.givingUpKey === wantedKey && m.wantedKey === givingUpKey)
+      .reduce((s, m) => s + m.activeCount, 0);
+
+  const rankedLegs: AutoSwapProposalLeg[] = legs.map((leg) => ({
+    ...leg,
+    wantedKeys: [...leg.wantedKeys].sort(
+      (a, b) => liqForPair(leg.givingUpKey, b) - liqForPair(leg.givingUpKey, a),
+    ),
+  }));
+
   // Also check Cohort swap alternative across Blue/Gold/Oski/Axe
   const cleanCohorts = (["Blue", "Gold", "Oski", "Axe"] as CohortName[]).filter((coh) => {
     if (coh === profile.homeCohort) return false;
@@ -473,28 +486,74 @@ export function autoGenerateSwapsFromPlan(params: {
     );
   });
 
-  const cohortLiq = marketPulse
-    .filter(
-      (m) =>
-        m.swapType === "cohort" &&
-        cleanCohorts.map((c) => `Cohort-${c}`).includes(m.givingUpKey) &&
-        m.wantedKey === `Cohort-${profile.homeCohort}`,
-    )
-    .reduce((s, m) => s + m.activeCount, 0);
+  const rankedCleanCohorts = [...cleanCohorts].sort(
+    (a, b) =>
+      liqForPair(`Cohort-${profile.homeCohort}`, `Cohort-${b}`) -
+      liqForPair(`Cohort-${profile.homeCohort}`, `Cohort-${a}`),
+  );
+
+  const cohortLiq = rankedCleanCohorts.reduce(
+    (sum, c) => sum + liqForPair(`Cohort-${profile.homeCohort}`, `Cohort-${c}`),
+    0,
+  );
+
+  // Automatically pick whether Full Cohort swap or Single/Paired Course swap is better
+  let recommendedSwapType: "single" | "cohort" = "single";
+  let recommendedReason = "";
+
+  if (rankedLegs.length === 0 && rankedCleanCohorts.length > 0) {
+    recommendedSwapType = "cohort";
+    recommendedReason =
+      "Full Cohort switch is best: no standalone course swap clears every colliding Core block, while switching cohorts fits cleanly.";
+  } else if (rankedLegs.length > 0 && rankedCleanCohorts.length === 0) {
+    recommendedSwapType = "single";
+    recommendedReason =
+      rankedLegs.length > 1
+        ? `Paired Course swap is best: resolves ${rankedLegs.length} Core overlaps together while no full cohort switch avoids all clashes.`
+        : `Single Course swap is best: moves only ${rankedLegs[0].course} while keeping your ${profile.homeCohort} cohort intact.`;
+  } else if (rankedLegs.length > 0 && rankedCleanCohorts.length > 0) {
+    const minLegLiq = Math.min(...rankedLegs.map((l) => l.liquidityCount));
+    if (rankedLegs.length >= 2) {
+      if (cohortLiq === 0 && minLegLiq > 0) {
+        recommendedSwapType = "single";
+        recommendedReason = `Paired Course swap is best: ${minLegLiq}+ waiting mirror${minLegLiq === 1 ? "" : "s"} can resolve your ${rankedLegs.length} Core clashes faster than switching whole cohorts.`;
+      } else {
+        recommendedSwapType = "cohort";
+        recommendedReason =
+          cohortLiq > 0
+            ? `Full Cohort switch is best: clears ${rankedLegs.length} Core conflicts in a single 1:1 trade (${cohortLiq} mirror${cohortLiq === 1 ? "" : "s"} waiting).`
+            : `Full Cohort switch is best: resolves ${rankedLegs.length} colliding Core courses cleanly in one cohort change instead of a multi-leg course swap.`;
+      }
+    } else if (minLegLiq === 0 && cohortLiq > 0) {
+      recommendedSwapType = "cohort";
+      recommendedReason = `Full Cohort switch is best: ${cohortLiq} cohort swap mirror${cohortLiq === 1 ? "" : "s"} waiting right now vs 0 mirrors for ${rankedLegs[0].course}.`;
+    } else {
+      recommendedSwapType = "single";
+      recommendedReason =
+        minLegLiq > 0
+          ? `Single Course swap is best: moves just ${rankedLegs[0].course} (${minLegLiq} mirror${minLegLiq === 1 ? "" : "s"} waiting) and keeps 3 of your 4 ${profile.homeCohort} Core classes.`
+          : `Single Course swap is best: moves only ${rankedLegs[0].course} while keeping 3 of your 4 ${profile.homeCohort} Core classes.`;
+    }
+  } else if (brokenCourses.length > 0) {
+    recommendedReason =
+      "Collisions span sections across every cohort — drop or shift an overlapping elective or blocked 30-min interval.";
+  }
 
   return {
-    isPairedRecommended: legs.length > 1,
-    swapType: "single",
-    legs,
+    isPairedRecommended: rankedLegs.length > 1,
+    swapType: recommendedSwapType,
+    recommendedReason,
+    legs: rankedLegs,
     cohortAlternative:
-      cleanCohorts.length > 0
+      rankedCleanCohorts.length > 0
         ? {
             givingUpCohort: profile.homeCohort,
-            wantedCohorts: cleanCohorts,
+            wantedCohorts: rankedCleanCohorts,
             liquidityCount: cohortLiq,
           }
         : undefined,
     conflictingElectivesOrBlocks: brokenCourses,
-    hasZeroConflictSwap: legs.length === brokenCourses.length || cleanCohorts.length > 0,
+    hasZeroConflictSwap:
+      rankedLegs.length === brokenCourses.length || rankedCleanCohorts.length > 0,
   };
 }

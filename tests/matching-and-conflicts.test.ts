@@ -831,4 +831,45 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     const demoAdmins = Object.values(DEMO_PROFILES).filter((p) => p.isAdmin);
     expect(demoAdmins.map((p) => p.id)).toEqual(["demo-maya"]);
   });
+
+  it("auto-selects Single Course swap for 1 conflict and Full Cohort swap when multi-course overlaps or cohort mirrors win", () => {
+    // 1. Single overlap (Spring B Wed 2:00 PM blocked hits only Gold Ethics 207.2B): prefers single course swap
+    const singleConflictStudent = makeProfile({
+      homeCohort: "Gold",
+      blockedSlots: ["SpringB:Wed_1400"],
+    });
+    const singleDiag = autoGenerateSwapsFromPlan({ profile: singleConflictStudent });
+    expect(singleDiag.legs).toHaveLength(1);
+    expect(singleDiag.legs[0]?.course).toBe("Ethics");
+    expect(singleDiag.swapType).toBe("single");
+    expect(singleDiag.recommendedReason).toContain("Single Course swap is best");
+
+    // 2. If 0 single-course mirrors exist AND a waiting Cohort swap mirror exists, cohort swap wins and ranks fastest cohort first
+    const cohortWinnerDiag = autoGenerateSwapsFromPlan({
+      profile: singleConflictStudent,
+      marketPulse: [
+        {
+          swapType: "cohort",
+          course: null,
+          givingUpKey: "Cohort-Oski", // gitleaks:allow
+          wantedKey: "Cohort-Gold", // gitleaks:allow
+          activeCount: 2,
+        },
+      ],
+    });
+    expect(cohortWinnerDiag.swapType).toBe("cohort");
+    expect(cohortWinnerDiag.cohortAlternative?.wantedCohorts[0]).toBe("Oski");
+    expect(cohortWinnerDiag.recommendedReason).toContain("Full Cohort switch is best");
+
+    // 3. Multiple colliding Core courses (e.g. Ops + Strategy in Blue): prefers full cohort swap when clean cohort exists
+    const multiOverlapStudent = makeProfile({
+      homeCohort: "Blue",
+      blockedSlots: ["SpringA:Tue_0900", "SpringB:Tue_0900"],
+    });
+    const multiDiag = autoGenerateSwapsFromPlan({ profile: multiOverlapStudent });
+    expect(multiDiag.legs.length).toBeGreaterThanOrEqual(2);
+    expect(multiDiag.cohortAlternative?.wantedCohorts.length ?? 0).toBeGreaterThan(0);
+    expect(multiDiag.swapType).toBe("cohort");
+    expect(multiDiag.recommendedReason).toContain("Full Cohort switch is best");
+  });
 });
