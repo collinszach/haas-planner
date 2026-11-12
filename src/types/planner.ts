@@ -194,6 +194,8 @@ export interface CourseRecommendation {
   easeLabel: "High ease" | "Moderate" | "Demanding" | "Unrated";
   workloadLabel: "Light work" | "Moderate work" | "Heavy work" | "Unrated";
   score: number;
+  plannedSemesterId?: SemesterId;
+  isCorePlanned?: boolean;
 }
 
 export interface SwapQueueDiagnostic {

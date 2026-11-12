@@ -32,7 +32,7 @@ import {
   autoGenerateSwapsFromPlan,
   recommendCoursesForSemester,
 } from "@/lib/courseRecommender";
-import { computeDegreeAudit } from "@/lib/degreeAudit";
+import { buildUnifiedPlanEntries, computeDegreeAudit } from "@/lib/degreeAudit";
 import {
   computeAnonymizedQueue,
   computeMarketPulse,
@@ -1117,5 +1117,78 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     });
     expect(grad2027.classYear).toBe("Y2");
     expect(grad2027.graduationYear).toBe(2027);
+  });
+
+  it("filters and shows all classes the student is planning on taking across semesters and course types", () => {
+    const mba252 = SPRING_2027_COURSES.find((c) => c.code === "MBA252.1")!;
+    expect(mba252).toBeDefined();
+
+    const plannedElective = catalogCourseToPlannedRecord(mba252, "Y1_Spring");
+    const plannedCampusCourse = {
+      instanceId: "Y1_Spring:berkeley:INFO206A",
+      semesterId: "Y1_Spring" as const,
+      courseId: "berkeley:INFO206A",
+      code: "INFO 206A",
+      name: "Introduction to Programming for Data",
+      units: 2,
+      instructors: "Faculty I School",
+      part: "A" as const,
+      meetings: [],
+      status: "planned" as const,
+      isCore: false,
+      certificates: [],
+      dataSource: "berkeley" as const,
+    };
+    const plannedY2Elective = {
+      instanceId: "Y2_Fall:MBA294.1",
+      semesterId: "Y2_Fall" as const,
+      courseId: "Fall-MBA294.1",
+      code: "MBA294.1",
+      name: "Venture Capital Speaker Series",
+      units: 1,
+      instructors: "Haas Faculty",
+      part: "Full" as const,
+      meetings: [],
+      status: "planned" as const,
+      isCore: false,
+      certificates: [],
+      dataSource: "haas" as const,
+    };
+
+    const studentProfile = makeProfile({
+      classYear: "Y1",
+      homeCohort: "Blue",
+      plannedCourses: [plannedElective, plannedCampusCourse, plannedY2Elective],
+    });
+
+    // 1. Build unified plan entries (includes Core cohort + planned electives + campus courses)
+    const unifiedEntries = buildUnifiedPlanEntries(studentProfile);
+    expect(unifiedEntries.length).toBeGreaterThan(0);
+
+    // 2. Filter for Spring 2027 planned classes
+    const springPlanned = unifiedEntries.filter((e) => e.semesterId === "Y1_Spring");
+    const springCodes = springPlanned.map((e) => e.code);
+    expect(springCodes).toContain("MBA252.1");
+    expect(springCodes).toContain("INFO 206A");
+    expect(springCodes).toContain("MBA 201B.1A"); // Core requirement Macro Blue
+
+    // 3. Filter for All 4 Semesters planned classes
+    const allCodes = unifiedEntries.map((e) => e.code);
+    expect(allCodes).toContain("MBA252.1");
+    expect(allCodes).toContain("INFO 206A");
+    expect(allCodes).toContain("MBA294.1"); // Y2 Fall elective
+
+    // 4. Filtering by keyword within planned courses
+    const searched = springPlanned.filter((e) =>
+      `${e.code} ${e.name}`.toLowerCase().includes("negotiations"),
+    );
+    expect(searched.length).toBe(1);
+    expect(searched[0].code).toBe("MBA252.1");
+
+    // 5. Total planned elective units in Spring
+    const electiveUnits = springPlanned
+      .filter((e) => !e.isCore)
+      .reduce((sum, e) => sum + e.units, 0);
+    expect(electiveUnits).toBe(4); // 2u MBA252.1 + 2u INFO 206A
   });
 });
