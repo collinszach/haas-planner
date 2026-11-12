@@ -1,5 +1,5 @@
 import type { SemesterId } from "@/types/planner";
-import type { CourseMeeting, PlannedCourseRecord, Weekday } from "@/types/swap";
+import type { CourseMeeting, PlannedCourseRecord, SectionInfo, Weekday } from "@/types/swap";
 
 export interface SemesterDateRange {
   name: string;
@@ -210,6 +210,38 @@ export function generateGoogleCalendarEventUrl(event: CalendarExportEvent): stri
   });
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+/**
+ * Generates a direct Google Calendar Web Intent URL for a specific SectionInfo (e.g. after swap confirm).
+ */
+export function generateSectionGoogleCalendarUrl(
+  section: SectionInfo,
+  semesterId: SemesterId = "Y1_Spring",
+): string | null {
+  if (!section.meetings || section.meetings.length === 0) return null;
+  const events = buildCalendarExportEvents(
+    [
+      {
+        instanceId: `section-${section.id}`,
+        semesterId,
+        courseId: section.id,
+        code: `MBA ${section.sectionCode}`,
+        name: `${section.course} (${section.cohort} Cohort)`,
+        units: 2,
+        instructors: section.instructor,
+        part: section.term.includes("A") ? "A" : "B",
+        meetings: section.meetings,
+        status: "planned",
+        isCore: true,
+        certificates: [],
+        dataSource: "haas",
+      },
+    ],
+    semesterId,
+  );
+  if (events.length === 0) return null;
+  return generateGoogleCalendarEventUrl(events[0]);
 }
 
 /**

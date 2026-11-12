@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { formatSwapKey, SECTION_BY_ID } from "@/data/sections";
 import { autoGenerateSwapsFromPlan } from "@/lib/courseRecommender";
+import { generateSectionGoogleCalendarUrl } from "@/lib/googleCalendar";
 import type { SubmitSwapPayload } from "@/lib/matcher";
 import type {
   MarketPulseItem,
@@ -9,7 +10,15 @@ import type {
   SwapMatch,
   SwapRequest,
 } from "@/types/swap";
-import { ArrowRightLeft, CheckCircle2, Clock, Sparkles, Users } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
 interface AutoSwapTrayProps {
   profile: StudentProfile;
@@ -45,6 +54,12 @@ export function AutoSwapTray({
   const [modeOverride, setModeOverride] = useState<"single" | "cohort" | null>(null);
   const [personalNote, setPersonalNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [justConfirmedSection, setJustConfirmedSection] = useState<{
+    course: string;
+    sectionCode: string;
+    cohort: string;
+    gcalUrl: string;
+  } | null>(null);
 
   const sectionLookup = useMemo(
     () =>
@@ -218,6 +233,36 @@ export function AutoSwapTray({
 
   return (
     <div className="divide-y divide-[#E5E5EA] border-b border-[#E5E5EA]">
+      {justConfirmedSection && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#A7F3D0] bg-[#ECFDF5] px-4 py-2.5 sm:px-5">
+          <div className="flex items-center gap-2 text-xs text-[#065F46]">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-[#059669]" />
+            <span>
+              <strong>{justConfirmedSection.course}</strong> ({justConfirmedSection.cohort} Cohort) confirmed in your schedule!
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={justConfirmedSection.gcalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#059669] px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-[#047857] transition"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Push to Google Calendar</span>
+              <ExternalLink className="h-3 w-3 opacity-80" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setJustConfirmedSection(null)}
+              className="text-xs text-[#065F46]/70 hover:text-[#065F46] px-1"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {hasPendingConfirmations && (
         <section className="bg-[#ECFDF5] px-4 py-3 sm:px-5">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -276,6 +321,18 @@ export function AutoSwapTray({
                         setConfirmingId(match.id);
                         try {
                           await onMarkConfirmed(match.id);
+                          const sec = sectionLookup[myGets];
+                          if (sec) {
+                            const url = generateSectionGoogleCalendarUrl(sec, "Y1_Spring");
+                            if (url) {
+                              setJustConfirmedSection({
+                                course: sec.course,
+                                sectionCode: sec.sectionCode,
+                                cohort: sec.cohort,
+                                gcalUrl: url,
+                              });
+                            }
+                          }
                         } catch (err) {
                           setError(err instanceof Error ? err.message : "Confirmation failed.");
                         } finally {
@@ -343,6 +400,18 @@ export function AutoSwapTray({
                           setConfirmingId(req.id);
                           try {
                             await onConfirmExternalRequest(req.id, targetKey || undefined);
+                            const sec = sectionLookup[targetKey];
+                            if (sec) {
+                              const url = generateSectionGoogleCalendarUrl(sec, "Y1_Spring");
+                              if (url) {
+                                setJustConfirmedSection({
+                                  course: sec.course,
+                                  sectionCode: sec.sectionCode,
+                                  cohort: sec.cohort,
+                                  gcalUrl: url,
+                                });
+                              }
+                            }
                           } catch (err) {
                             setError(err instanceof Error ? err.message : "Confirmation failed.");
                           } finally {

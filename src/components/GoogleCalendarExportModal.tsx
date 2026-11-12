@@ -74,7 +74,7 @@ export function GoogleCalendarExportModal({
                 id="calendar-export-modal-title"
                 className="text-sm font-semibold tracking-[-0.01em] text-[#1D1D1F]"
               >
-                Export Schedule to Google Calendar
+                Push Schedule to Google Calendar
               </h2>
               <p className="text-xs text-[#6E6E73]">
                 {dateRange.name} · {exportEvents.length} class {exportEvents.length === 1 ? "meeting" : "meetings"} scheduled
@@ -176,12 +176,12 @@ export function GoogleCalendarExportModal({
             </div>
           </div>
 
-          {/* List of Scheduled Classes to Export Individually */}
+          {/* List of Scheduled Classes to Push Directly */}
           <div className="pt-2">
             <div className="flex items-center justify-between pb-1.5 text-xs font-semibold text-[#1D1D1F]">
-              <span>Individual Course Direct Web Links</span>
+              <span>Direct 1-Click Google Calendar Push Links</span>
               <span className="text-[#6E6E73] font-normal text-[11px]">
-                Click "Add to Google" on any class to open pre-filled in Google Calendar
+                Click "Push to Google" to open directly pre-filled in Google Calendar
               </span>
             </div>
 
@@ -189,7 +189,7 @@ export function GoogleCalendarExportModal({
               <div className="rounded-[8px] border border-[#E5E5EA] p-6 text-center text-[#6E6E73]">
                 <Calendar className="mx-auto h-8 w-8 text-[#D1D1D6]" />
                 <p className="mt-2 font-medium text-[#1D1D1F]">No classes planned for this semester yet.</p>
-                <p className="mt-1 text-[11px]">Add courses to your schedule first, then export to Google Calendar.</p>
+                <p className="mt-1 text-[11px]">Add courses to your schedule first, then push to Google Calendar.</p>
               </div>
             ) : (
               <div className="divide-y divide-[#F2F2F7] rounded-[8px] border border-[#E5E5EA] overflow-hidden">
@@ -237,16 +237,16 @@ export function GoogleCalendarExportModal({
                         </div>
                       </div>
 
-                      {/* 1-Click Individual Web Intent Link */}
+                      {/* 1-Click Direct Push Link */}
                       <a
                         href={gcalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-[5px] border border-[#003262]/20 bg-[#003262]/5 px-2.5 py-1.5 text-[11px] font-semibold text-[#003262] hover:bg-[#003262]/10 transition"
+                        className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#003262] px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-[#002145] transition"
                       >
-                        <Calendar className="h-3 w-3" />
-                        <span>Add to Google</span>
-                        <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>Push to Google</span>
+                        <ExternalLink className="h-3 w-3 opacity-80" />
                       </a>
                     </div>
                   );

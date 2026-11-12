@@ -679,11 +679,11 @@ export function HalfHourGrid({
           <button
             type="button"
             onClick={() => setShowExportModal(true)}
-            aria-label="Export schedule to Google Calendar"
+            aria-label="Push schedule to Google Calendar"
             className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#003262]/20 bg-[#003262]/5 px-2.5 py-1 text-xs font-semibold text-[#003262] transition hover:bg-[#003262]/10"
           >
             <Calendar className="h-3.5 w-3.5 text-[#003262]" />
-            <span>Export to Google Calendar</span>
+            <span>Push to Google Calendar</span>
           </button>
 
           {supportsBlockedOverlay && activeTermBlockedTokens.length > 0 && (
