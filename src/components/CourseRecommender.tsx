@@ -10,6 +10,7 @@ import { recommendCoursesForSemester } from "@/lib/courseRecommender";
 import { computeDegreeAudit } from "@/lib/degreeAudit";
 import type {
   BerkeleyClassResult,
+  CatalogCourse,
   CourseRecommendation,
   SemesterId,
 } from "@/types/planner";
@@ -41,9 +42,11 @@ interface CourseRecommenderProps {
   onUpdatePlannedBid?: (courseId: string, points: number) => Promise<void>;
 }
 
-type RecommenderTab = "fits" | "swap_unlocks" | "olr932" | "all" | "berkeley";
-type SortOption = "score" | "worth" | "demand" | "instructor" | "ease" | "bid";
+type CatalogSource = "haas" | "berkeley";
+type FitView = "fits" | "swap_unlocks" | "all";
+type SortOption = "score" | "demand" | "seats" | "worth" | "instructor" | "ease" | "bid";
 type CategoryFilter = "ALL" | "EL" | "BT" | CertificateCode;
+type FormatFilter = "ALL" | "Full" | "A" | "B" | "WeekendBlock" | "10W";
 
 const BID_RANK: Record<string, number> = {
   low: 0,
@@ -59,6 +62,14 @@ const BID_TEXT: Record<string, { label: string; color: string }> = {
   application: { label: "App Required", color: "text-[#003262]" },
 };
 
+const QUICK_BERKELEY_DEPTS = ["INFO", "COMPSCI", "ENVECON", "PUBPOL", "LAW", "INDENG", "STAT"];
+
+function matchesFormatFilter(part: CatalogCourse["part"], filter: FormatFilter): boolean {
+  if (filter === "ALL") return true;
+  if (filter === "WeekendBlock") return part === "Weekend" || part === "Block";
+  return part === filter;
+}
+
 export function CourseRecommender({
   semesterId,
   profile,
@@ -69,10 +80,13 @@ export function CourseRecommender({
   onRemoveCourse,
   onUpdatePlannedBid,
 }: CourseRecommenderProps) {
-  const [tab, setTab] = useState<RecommenderTab>("fits");
+  const [source, setSource] = useState<CatalogSource>("haas");
+  const [fitView, setFitView] = useState<FitView>("fits");
   const [sortBy, setSortBy] = useState<SortOption>("score");
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
+  const [formatFilter, setFormatFilter] = useState<FormatFilter>("ALL");
+  const [openSeatsOnly, setOpenSeatsOnly] = useState(false);
 
   // Berkeleytime Cross-Campus Search state
   const [btQuery, setBtQuery] = useState("INFO");
@@ -109,16 +123,32 @@ export function CourseRecommender({
     [semesterId, profile, marketPulse, sections],
   );
 
+  const effectiveFitView: FitView =
+    semesterId !== "Y1_Spring" && fitView === "swap_unlocks" ? "fits" : fitView;
+
   const counts = useMemo(() => {
     let fits = 0;
     let swap = 0;
-    let olr932 = 0;
+    let openSeats = 0;
     for (const r of allRecommendations) {
       if (r.fitStatus === "fits") fits += 1;
       else if (r.fitStatus === "swap_unlocks") swap += 1;
-      if (r.course.olrRoundId === OLR_SPRING_2027_RULES.roundId) olr932 += 1;
+      if ((r.course.olrAvailable ?? 0) > 0) openSeats += 1;
     }
-    return { fits, swap, olr932, total: allRecommendations.length };
+    return { fits, swap, openSeats, total: allRecommendations.length };
+  }, [allRecommendations]);
+
+  const availableFormats = useMemo(() => {
+    const parts = new Set(allRecommendations.map((r) => r.course.part));
+    const options: Array<{ value: FormatFilter; label: string }> = [{ value: "ALL", label: "All Formats" }];
+    if (parts.has("Full")) options.push({ value: "Full", label: "Full Term" });
+    if (parts.has("A")) options.push({ value: "A", label: "Part A (Wks 1–7)" });
+    if (parts.has("B")) options.push({ value: "B", label: "Part B (Wks 8–14)" });
+    if (parts.has("10W")) options.push({ value: "10W", label: "10-Week" });
+    if (parts.has("Weekend") || parts.has("Block")) {
+      options.push({ value: "WeekendBlock", label: "Weekend / Block" });
+    }
+    return options;
   }, [allRecommendations]);
 
   const springBudget = useMemo(() => {
@@ -153,16 +183,30 @@ export function CourseRecommender({
     };
   }, [audit.bySemester, profile.plannedCourses, profile.plannedBids]);
 
+  const hasActiveFilters =
+    query.trim().length > 0 ||
+    categoryFilter !== "ALL" ||
+    formatFilter !== "ALL" ||
+    (semesterId === "Y1_Spring" && openSeatsOnly);
+
+  const resetFilters = () => {
+    setQuery("");
+    setCategoryFilter("ALL");
+    setFormatFilter("ALL");
+    setOpenSeatsOnly(false);
+  };
+
   const filtered = useMemo(() => {
-    if (tab === "berkeley") return [];
+    if (source === "berkeley") return [];
     const q = query.trim().toLowerCase();
 
     const list = allRecommendations.filter((rec) => {
-      if (tab === "fits" && rec.fitStatus !== "fits") return false;
-      if (tab === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
-      if (tab === "olr932" && rec.course.olrRoundId !== OLR_SPRING_2027_RULES.roundId) {
+      if (effectiveFitView === "fits" && rec.fitStatus !== "fits") return false;
+      if (effectiveFitView === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
+      if (semesterId === "Y1_Spring" && openSeatsOnly && (rec.course.olrAvailable ?? 0) <= 0) {
         return false;
       }
+      if (!matchesFormatFilter(rec.course.part, formatFilter)) return false;
       if (categoryFilter === "EL" && !rec.course.experiential) return false;
       if (categoryFilter === "BT" && !rec.course.businessTech) return false;
       if (
@@ -175,7 +219,7 @@ export function CourseRecommender({
       }
       if (q) {
         const hay =
-          `${rec.course.code} ${rec.course.name} ${rec.course.instructors} ${rec.course.primaryFunction ?? ""} ${rec.course.primaryIndustry ?? ""}`.toLowerCase();
+          `${rec.course.code} ${rec.course.name} ${rec.course.instructors} ${rec.course.dayLabel} ${rec.course.timeLabel} ${rec.course.part} ${rec.course.primaryFunction ?? ""} ${rec.course.primaryIndustry ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -191,6 +235,12 @@ export function CourseRecommender({
         if (pb !== pa) return pb - pa;
         return b.score - a.score;
       }
+      if (sortBy === "seats") {
+        const sa = a.course.olrAvailable ?? -1;
+        const sb = b.course.olrAvailable ?? -1;
+        if (sb !== sa) return sb - sa;
+        return b.score - a.score;
+      }
       if (sortBy === "instructor") {
         return (
           (b.course.evaluation?.instructorEffectiveness ?? -1) -
@@ -198,7 +248,6 @@ export function CourseRecommender({
         );
       }
       if (sortBy === "ease") {
-        // Lower difficulty = higher ease / lighter work; put rated courses first
         const da = a.course.evaluation?.difficulty ?? 99;
         const db = b.course.evaluation?.difficulty ?? 99;
         return da - db;
@@ -208,7 +257,18 @@ export function CourseRecommender({
       }
       return b.score - a.score;
     });
-  }, [allRecommendations, tab, query, categoryFilter, sortBy, courseDemand]);
+  }, [
+    allRecommendations,
+    source,
+    effectiveFitView,
+    semesterId,
+    openSeatsOnly,
+    formatFilter,
+    query,
+    categoryFilter,
+    sortBy,
+    courseDemand,
+  ]);
 
   const handleToggleHaasCourse = async (rec: CourseRecommendation) => {
     const existing = plannedByCourseId.get(rec.course.id);
@@ -224,9 +284,10 @@ export function CourseRecommender({
     }
   };
 
-  const handleSearchBerkeley = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!btQuery.trim()) return;
+  const handleSearchBerkeley = async (overrideQuery?: string) => {
+    const targetQuery = (overrideQuery ?? btQuery).trim();
+    if (!targetQuery) return;
+    if (overrideQuery !== undefined) setBtQuery(overrideQuery);
     setBtLoading(true);
     setBtError(null);
     const btSeason: "Fall" | "Spring" =
@@ -234,7 +295,7 @@ export function CourseRecommender({
     const btYear = semesterId === "Y1_Fall" ? 2026 : 2027;
     try {
       const res = await searchBerkeleyCourses({
-        query: btQuery,
+        query: targetQuery,
         semester: btSeason,
         year: btYear,
       });
@@ -263,192 +324,296 @@ export function CourseRecommender({
   return (
     <section className="flex flex-col bg-white">
       <div className="border-b border-[#E5E5EA] px-4 py-3 sm:px-5">
+        {/* Header & Source Segmented Control */}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
-            Course Catalog
-          </h2>
-          <span className="tabular-nums text-xs font-medium text-[#6E6E73]">
-            {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA u · {audit.nonHaasUnits}/
-            {audit.nonHaasCap} Non-Haas
-          </span>
-        </div>
-
-        {/* Sub-tabs */}
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => setTab("fits")}
-            className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
-              tab === "fits"
-                ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
-            }`}
-          >
-            Fits Timetable ({counts.fits})
-          </button>
-
-          {semesterId === "Y1_Spring" && (
-            <>
-              <button
-                type="button"
-                onClick={() => setTab("swap_unlocks")}
-                className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
-                  tab === "swap_unlocks"
-                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
-                }`}
-              >
-                Swap Unlocks ({counts.swap})
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("olr932")}
-                className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
-                  tab === "olr932"
-                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
-                }`}
-              >
-                OLR Bidding 932 ({counts.olr932})
-              </button>
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setTab("all")}
-            className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
-              tab === "all"
-                ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
-            }`}
-          >
-            All ({counts.total})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setTab("berkeley");
-              if (btResults.length === 0) void handleSearchBerkeley();
-            }}
-            className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
-              tab === "berkeley"
-                ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
-            }`}
-          >
-            Non-MBA
-          </button>
-        </div>
-
-        {/* OLR Round 932 Spring 2027 Budget & Units Strip */}
-        {semesterId === "Y1_Spring" && (
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#F2F2F7] pt-2 text-xs text-[#6E6E73]">
-            <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span
-                className={
-                  springBudget.overBidBudget ? "font-semibold text-[#B42318]" : "font-medium text-[#1D1D1F]"
-                }
-              >
-                Bid Pts: {springBudget.bidExpended}/{OLR_SPRING_2027_RULES.maxBidPoints} (Rem{" "}
-                {springBudget.bidRemaining})
-              </span>
-              <span
-                className={
-                  springBudget.overUnitCap ? "font-semibold text-[#B42318]" : "font-medium text-[#1D1D1F]"
-                }
-              >
-                Spring Units: {springBudget.totalUnits}/{OLR_SPRING_2027_RULES.maxSpringUnits}u (
-                {springBudget.remainingUnits}u left)
-              </span>
-            </div>
-            <a
-              href={OLR_SPRING_2027_RULES.olrUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 font-medium text-[#003262] hover:underline"
-            >
-              OLR Portal (932)
-              <ExternalLink className="h-3 w-3" />
-            </a>
+          <div>
+            <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
+              Course Search
+            </h2>
+            <p className="tabular-nums text-xs text-[#6E6E73]">
+              {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA u · {audit.nonHaasUnits}/
+              {audit.nonHaasCap} Non-Haas
+            </p>
           </div>
-        )}
 
-        {/* Search + Filter Bar */}
-        {tab !== "berkeley" ? (
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[140px] flex-1">
+          <div
+            role="tablist"
+            aria-label="Course catalog source"
+            className="inline-flex rounded-[7px] bg-[#E5E5EA]/70 p-0.5"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={source === "haas"}
+              onClick={() => setSource("haas")}
+              className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
+                source === "haas"
+                  ? "bg-white text-[#1D1D1F] shadow-sm"
+                  : "text-[#48484A] hover:text-[#1D1D1F]"
+              }`}
+            >
+              Haas ({counts.total})
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={source === "berkeley"}
+              onClick={() => {
+                setSource("berkeley");
+                if (btResults.length === 0) void handleSearchBerkeley();
+              }}
+              className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
+                source === "berkeley"
+                  ? "bg-white text-[#1D1D1F] shadow-sm"
+                  : "text-[#48484A] hover:text-[#1D1D1F]"
+              }`}
+            >
+              Non-MBA Campus
+            </button>
+          </div>
+        </div>
+
+        {/* Search & Faceted Filters */}
+        {source === "haas" ? (
+          <div className="mt-2.5 space-y-2">
+            {/* Search Input */}
+            <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
               <input
                 type="search"
+                aria-label="Search Haas courses"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search code, title, prof..."
-                className="h-7 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
+                placeholder="Search code, title, prof, day (e.g. MW), or topic..."
+                className="h-8 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
               />
             </div>
 
-            <select
-              aria-label="Filter courses by requirement"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-              className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
-            >
-              <option value="ALL">All Types</option>
-              <option value="EL">Experiential (1 req)</option>
-              <option value="BT">Bus &amp; Tech</option>
-              {(["BA", "SB", "AI", "RE"] as CertificateCode[]).map((c) => (
-                <option key={c} value={c}>
-                  {c} · {CERTIFICATE_LABELS[c]}
-                </option>
-              ))}
-            </select>
+            {/* Schedule Fit Strip + Availability Toggle */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setFitView("fits")}
+                  className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
+                    effectiveFitView === "fits"
+                      ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                      : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                  }`}
+                >
+                  Fits Grid ({counts.fits})
+                </button>
+                {semesterId === "Y1_Spring" && (
+                  <button
+                    type="button"
+                    onClick={() => setFitView("swap_unlocks")}
+                    className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
+                      effectiveFitView === "swap_unlocks"
+                        ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                        : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                    }`}
+                  >
+                    Swap Unlocks ({counts.swap})
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFitView("all")}
+                  className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
+                    effectiveFitView === "all"
+                      ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                      : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                  }`}
+                >
+                  All ({counts.total})
+                </button>
+              </div>
 
-            <select
-              aria-label="Sort recommended courses"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
-            >
-              <option value="score">Best Fit</option>
-              <option value="demand">Most Planned</option>
-              <option value="worth">Highest Worth</option>
-              <option value="instructor">Top Instructor</option>
-              <option value="ease">Lightest Load</option>
-              <option value="bid">Low Bid Risk</option>
-            </select>
+              {semesterId === "Y1_Spring" && (
+                <button
+                  type="button"
+                  aria-pressed={openSeatsOnly}
+                  onClick={() => setOpenSeatsOnly((prev) => !prev)}
+                  className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
+                    openSeatsOnly
+                      ? "border-[#065F46] bg-[#ECFDF5] text-[#065F46]"
+                      : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                  }`}
+                >
+                  Open Seats ({counts.openSeats})
+                </button>
+              )}
+            </div>
+
+            {/* Structured Dropdowns: Requirement + Format + Sort */}
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+              <select
+                aria-label="Filter courses by requirement"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+                className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
+              >
+                <option value="ALL">All Requirements</option>
+                <option value="EL">Experiential (1 req)</option>
+                <option value="BT">Bus &amp; Tech</option>
+                {(["BA", "SB", "AI", "RE"] as CertificateCode[]).map((c) => (
+                  <option key={c} value={c}>
+                    {c} · {CERTIFICATE_LABELS[c]}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Filter courses by term format"
+                value={formatFilter}
+                onChange={(e) => setFormatFilter(e.target.value as FormatFilter)}
+                className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
+              >
+                {availableFormats.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Sort recommended courses"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
+              >
+                <option value="score">Sort: Best Fit</option>
+                <option value="demand">Sort: Most Planned</option>
+                {semesterId === "Y1_Spring" && <option value="seats">Sort: Open Seats</option>}
+                <option value="worth">Sort: Highest Worth</option>
+                <option value="instructor">Sort: Top Instructor</option>
+                <option value="ease">Sort: Lightest Load</option>
+                <option value="bid">Sort: Low Bid Risk</option>
+              </select>
+            </div>
+
+            {/* Active Result Summary + Spring Bidding Budget */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F2F2F7] pt-2 text-xs text-[#6E6E73]">
+              <div className="flex items-center gap-2">
+                <span className="tabular-nums">
+                  {filtered.length} {filtered.length === 1 ? "course" : "courses"} shown
+                </span>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="font-medium text-[#003262] hover:underline"
+                  >
+                    Reset filters
+                  </button>
+                )}
+              </div>
+
+              {semesterId === "Y1_Spring" && (
+                <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span
+                    className={
+                      springBudget.overBidBudget ? "font-semibold text-[#B42318]" : "font-medium text-[#1D1D1F]"
+                    }
+                  >
+                    Bid Pts: {springBudget.bidExpended}/{OLR_SPRING_2027_RULES.maxBidPoints}
+                  </span>
+                  <span
+                    className={
+                      springBudget.overUnitCap ? "font-semibold text-[#B42318]" : "font-medium text-[#1D1D1F]"
+                    }
+                  >
+                    Spring: {springBudget.totalUnits}/{OLR_SPRING_2027_RULES.maxSpringUnits}u
+                  </span>
+                  <a
+                    href={OLR_SPRING_2027_RULES.olrUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-[#003262] hover:underline"
+                  >
+                    Haas OLR
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
-          <form onSubmit={(e) => void handleSearchBerkeley(e)} className="mt-2.5 flex gap-2">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
-              <input
-                type="text"
-                value={btQuery}
-                onChange={(e) => setBtQuery(e.target.value)}
-                placeholder="Search campus depts (e.g. INFO, COMPSCI, LAW 276, ENVECON, PUBPOL)"
-                className="h-7 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={btLoading}
-              className="h-7 rounded-[6px] bg-[#003262] px-3 text-xs font-medium text-white hover:bg-[#002145] disabled:opacity-60"
+          <div className="mt-2.5 space-y-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleSearchBerkeley();
+              }}
+              className="flex gap-2"
             >
-              {btLoading ? "Searching..." : "Search Campus"}
-            </button>
-          </form>
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
+                <input
+                  type="text"
+                  aria-label="Search UC Berkeley Non-MBA courses"
+                  value={btQuery}
+                  onChange={(e) => setBtQuery(e.target.value)}
+                  placeholder="Department or course (e.g. INFO, COMPSCI, LAW 276, ENVECON)"
+                  className="h-8 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={btLoading}
+                className="h-8 rounded-[6px] bg-[#003262] px-3 text-xs font-medium text-white hover:bg-[#002145] disabled:opacity-60"
+              >
+                {btLoading ? "Searching..." : "Search Campus"}
+              </button>
+            </form>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-[#6E6E73]">Quick depts:</span>
+              {QUICK_BERKELEY_DEPTS.map((dept) => (
+                <button
+                  key={dept}
+                  type="button"
+                  onClick={() => void handleSearchBerkeley(dept)}
+                  className={`rounded-[5px] border px-2 py-0.5 text-xs font-medium transition ${
+                    btQuery.trim().toUpperCase() === dept
+                      ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                      : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                  }`}
+                >
+                  {dept}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
       {/* Scrollable Catalog List */}
       <div className="max-h-[620px] divide-y divide-[#F2F2F7] overflow-y-auto">
-        {tab !== "berkeley" ? (
+        {source === "haas" ? (
           filtered.length === 0 ? (
-            <div className="p-8 text-center text-xs text-[#6E6E73]">
-              No courses match these filters in this view. Try clearing filters or switching to
-              “All”.
+            <div className="space-y-2 p-8 text-center text-xs text-[#6E6E73]">
+              <p>No courses match these filters in this view.</p>
+              <div className="flex justify-center gap-3">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="font-medium text-[#003262] hover:underline"
+                  >
+                    Reset filters
+                  </button>
+                )}
+                {effectiveFitView !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setFitView("all")}
+                    className="font-medium text-[#003262] hover:underline"
+                  >
+                    Show all {counts.total} courses
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             filtered.slice(0, 60).map((rec) => {
@@ -511,7 +676,7 @@ export function CourseRecommender({
                           >
                             {course.olrAvailable === 0
                               ? `Full (0/${course.olrCapacity})`
-                              : `${course.olrAvailable}/${course.olrCapacity} OLR`}
+                              : `${course.olrAvailable}/${course.olrCapacity} seats`}
                           </span>
                         )}
                         <span
@@ -636,7 +801,7 @@ export function CourseRecommender({
               <div className="p-8 text-center text-xs text-[#6E6E73]">
                 {btLoading
                   ? "Querying UC Berkeley class catalog..."
-                  : "Enter a UC Berkeley department or course (e.g. INFO, COMPSCI, LAW, STAT) and click Search Campus."}
+                  : "Enter a UC Berkeley department or pick one above to search campus classes."}
               </div>
             ) : (
               <div className="divide-y divide-[#F2F2F7]">
