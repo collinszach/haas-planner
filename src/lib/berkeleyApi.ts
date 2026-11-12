@@ -136,6 +136,101 @@ const CURATED_BERKELEY_FALLBACK: BerkeleyClassResult[] = [
     evaluation: null,
     sourceMode: "fallback",
   },
+  {
+    id: "BT-2027Spring-CIVENG-200A-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "CIVENG",
+    courseNumber: "200A",
+    sectionNumber: "001",
+    title: "Environmental Fluid Mechanics",
+    units: 3,
+    instructors: "Mark Stacey",
+    averageGrade: 3.86,
+    enrolledCount: 20,
+    maxEnroll: 35,
+    dayLabel: "Tue/Thu",
+    timeLabel: "2:00 PM–3:30 PM",
+    meetings: [{ days: ["Tue", "Thu"], startMin: 840, endMin: 930, part: "Full" }],
+    evaluation: null,
+    sourceMode: "fallback",
+  },
+  {
+    id: "BT-2027Spring-ECON-201A-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "ECON",
+    courseNumber: "201A",
+    sectionNumber: "001",
+    title: "Economic Theory (Microeconomics)",
+    units: 4,
+    instructors: "David Ahn",
+    averageGrade: 3.79,
+    enrolledCount: 22,
+    maxEnroll: 40,
+    dayLabel: "Mon/Wed",
+    timeLabel: "10:00 AM–11:30 AM",
+    meetings: [{ days: ["Mon", "Wed"], startMin: 600, endMin: 690, part: "Full" }],
+    evaluation: null,
+    sourceMode: "fallback",
+  },
+  {
+    id: "BT-2027Spring-ARCH-201-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "ARCH",
+    courseNumber: "201",
+    sectionNumber: "001",
+    title: "Architecture Design Studio",
+    units: 5,
+    instructors: "Ronald Rael",
+    averageGrade: 3.92,
+    enrolledCount: 14,
+    maxEnroll: 20,
+    dayLabel: "Mon/Wed/Fri",
+    timeLabel: "2:00 PM–6:00 PM",
+    meetings: [{ days: ["Mon", "Wed", "Fri"], startMin: 840, endMin: 1080, part: "Full" }],
+    evaluation: null,
+    sourceMode: "fallback",
+  },
+  {
+    id: "BT-2027Spring-LAW-278-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "LAW",
+    courseNumber: "278",
+    sectionNumber: "001",
+    title: "Venture Capital and Startup Law",
+    units: 3,
+    instructors: "Robert Bartlett",
+    averageGrade: 3.88,
+    enrolledCount: 35,
+    maxEnroll: 45,
+    dayLabel: "Tue/Thu",
+    timeLabel: "3:30 PM–5:00 PM",
+    meetings: [{ days: ["Tue", "Thu"], startMin: 930, endMin: 1020, part: "Full" }],
+    evaluation: null,
+    sourceMode: "fallback",
+  },
+  {
+    id: "BT-2027Spring-ESPM-201A-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "ESPM",
+    courseNumber: "201A",
+    sectionNumber: "001",
+    title: "Research Approaches in Environmental Science, Policy & Mgmt",
+    units: 3,
+    instructors: "Alastair Iles",
+    averageGrade: 3.95,
+    enrolledCount: 16,
+    maxEnroll: 25,
+    dayLabel: "Wed",
+    timeLabel: "1:00 PM–4:00 PM",
+    meetings: [{ days: ["Wed"], startMin: 780, endMin: 960, part: "Full" }],
+    evaluation: null,
+    sourceMode: "fallback",
+  },
 ];
 
 export async function searchBerkeleyCourses(params: {
@@ -154,22 +249,38 @@ export async function searchBerkeleyCourses(params: {
 
   if (isSupabaseConfigured && supabase) {
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "search-berkeley-courses",
-        {
-          body: { search: q, semester, year, page: 1, pageSize: 20 },
-        },
-      );
-      if (!error && Array.isArray(data?.results)) {
-        // Enforce strictly graduate-level courses (200+) for MBA and concurrent degree credit
-        const gradResults = (data.results as BerkeleyClassResult[])
-          .filter((r) => isGraduateCourse(r.courseNumber))
-          .map((r) => ({
-            ...r,
-            sourceMode: "live" as const,
-          }));
+      // If query is an alphabetic department code (no digits, e.g. "COMPSCI", "ECON", "CIVENG"),
+      // query the 200-level graduate range (e.g. "COMPSCI 2") alongside the raw query to ensure
+      // Berkeleytime returns the actual graduate-level course results.
+      const searchQueries = (!/\d/.test(q) && q.length <= 8) ? [`${q} 2`, q] : [q];
+      const aggregatedResults: BerkeleyClassResult[] = [];
+      const seenIds = new Set<string>();
+
+      for (const searchQuery of searchQueries) {
+        const { data, error } = await supabase.functions.invoke(
+          "search-berkeley-courses",
+          {
+            body: { search: searchQuery, semester, year, page: 1, pageSize: 25 },
+          },
+        );
+        if (!error && Array.isArray(data?.results)) {
+          for (const item of data.results as BerkeleyClassResult[]) {
+            if (isGraduateCourse(item.courseNumber) && !seenIds.has(item.id)) {
+              seenIds.add(item.id);
+              aggregatedResults.push({
+                ...item,
+                sourceMode: "live" as const,
+              });
+            }
+          }
+        }
+        // If we already collected good graduate courses from the 200-level query, break early
+        if (aggregatedResults.length >= 8) break;
+      }
+
+      if (aggregatedResults.length > 0) {
         return {
-          results: gradResults,
+          results: aggregatedResults,
           sourceMode: "live",
         };
       }

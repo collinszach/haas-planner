@@ -48,6 +48,10 @@ import {
   type MatchEngineState,
 } from "@/lib/matcher";
 import {
+  ALL_BERKELEY_DEPARTMENTS,
+  POPULAR_GRAD_DEPTS,
+} from "@/data/berkeleyDepartments";
+import {
   buildCalendarExportEvents,
   generateGoogleCalendarEventUrl,
   generateIcsFileContent,
@@ -1428,5 +1432,41 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(icsContent).toContain("LOCATION:N370 Chou");
     expect(icsContent).toContain("END:VEVENT");
     expect(icsContent).toContain("END:VCALENDAR");
+  });
+
+  it("populates all 100 UC Berkeley graduate departments in strict alphabetical order (A–Z) with no search required", () => {
+    // 1. Full Berkeley campus catalog coverage: 100 departments
+    expect(ALL_BERKELEY_DEPARTMENTS.length).toBe(100);
+    expect(POPULAR_GRAD_DEPTS.length).toBe(100);
+
+    // 2. Strict alphabetical order A to Z
+    const codes = ALL_BERKELEY_DEPARTMENTS.map((d) => d.code);
+    const sortedCodes = [...codes].sort((a, b) => a.localeCompare(b));
+    expect(codes).toEqual(sortedCodes);
+
+    // 3. Every department has valid code, human-readable name, and no empty strings
+    for (const dept of ALL_BERKELEY_DEPARTMENTS) {
+      expect(dept.code.length).toBeGreaterThanOrEqual(2);
+      expect(dept.name.length).toBeGreaterThanOrEqual(3);
+    }
+
+    // 4. Contains major campus graduate departments outside of Haas
+    const requiredDepts = [
+      "AERO", "AFRICAM", "ANTHRO", "ARCH", "ARESEC", "BIOENG", "CHEM", "CHMENG",
+      "CIVENG", "COMPSCI", "CYPLAN", "DATA", "DEMOG", "DESINV", "ECON", "EDUC",
+      "EECS", "ELENG", "ENERES", "ENGIN", "ENGLISH", "ENVECON", "ENVDES", "EPS",
+      "ESPM", "ETHSTD", "FILM", "HISTART", "HISTORY", "INDENG", "INFO", "INTEGBI",
+      "JOURN", "LAW", "MATH", "MATSCI", "MBA", "MCELLBI", "MECENG", "MUSIC",
+      "NEUROSC", "NUCENG", "NUSCTX", "OPTOM", "PBHLTH", "PHILOS", "PHYSICS",
+      "POLSCI", "PSYCH", "PUBPOL", "RHETOR", "SOCIOL", "SOCWEL", "STAT", "VISSCI",
+    ];
+    for (const req of requiredDepts) {
+      expect(codes).toContain(req);
+    }
+
+    // 5. Haas MBA is present and clearly labeled
+    const mbaDept = ALL_BERKELEY_DEPARTMENTS.find((d) => d.code === "MBA");
+    expect(mbaDept).toBeDefined();
+    expect(mbaDept?.name).toContain("Haas");
   });
 });

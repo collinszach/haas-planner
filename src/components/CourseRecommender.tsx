@@ -52,27 +52,15 @@ interface CourseRecommenderProps {
   onRemoveCourse: (instanceId: string) => Promise<void>;
 }
 
+import {
+  ALL_BERKELEY_DEPARTMENTS,
+  POPULAR_GRAD_DEPTS,
+} from "@/data/berkeleyDepartments";
+export { POPULAR_GRAD_DEPTS };
+
 type FitView = "fits" | "swap_unlocks" | "planned" | "all";
 type SortOption = "score" | "seats" | "worth" | "instructor" | "ease";
 type CategoryFilter = "ALL" | "EL" | "BT" | CertificateCode;
-
-export const POPULAR_GRAD_DEPTS = [
-  { code: "CIVENG", name: "Civil & Environmental Engineering (200+)" },
-  { code: "COMPSCI", name: "Computer Science (200+)" },
-  { code: "DATA", name: "Data Science (200+)" },
-  { code: "ECON", name: "Economics (200+)" },
-  { code: "ELENG", name: "Electrical Engineering (200+)" },
-  { code: "ENGIN", name: "Engineering Graduate (200+)" },
-  { code: "ENVECON", name: "Environmental & Energy Economics (200+)" },
-  { code: "INDENG", name: "Industrial Eng & Operations Research (200+)" },
-  { code: "INFO", name: "School of Information (200+)" },
-  { code: "LAW", name: "Berkeley Law (200+)" },
-  { code: "MBA", name: "Haas School of Business (MBA Electives)" },
-  { code: "MECENG", name: "Mechanical Engineering (200+)" },
-  { code: "PBHLTH", name: "School of Public Health (200+)" },
-  { code: "PUBPOL", name: "Goldman School of Public Policy (200+)" },
-  { code: "STAT", name: "Statistics (200+)" },
-] as const;
 
 export function CourseRecommender({
   semesterId,
@@ -85,23 +73,13 @@ export function CourseRecommender({
   // Department filter: Defaults strictly to MBA courses only
   const [selectedDepts, setSelectedDepts] = useState<string[]>(["MBA"]);
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
-  const [customDeptInput, setCustomDeptInput] = useState("");
   const [campusCoursesByDept, setCampusCoursesByDept] = useState<
     Record<string, BerkeleyClassResult[]>
   >({});
   const [loadingDepts, setLoadingDepts] = useState<Set<string>>(new Set());
 
-  // Strictly alphabetized department list (including any custom added departments)
-  const allDeptsList = useMemo(() => {
-    const customCodes = selectedDepts.filter(
-      (code) => !POPULAR_GRAD_DEPTS.some((p) => p.code === code),
-    );
-    const combined: Array<{ code: string; name: string }> = [
-      ...POPULAR_GRAD_DEPTS,
-      ...customCodes.map((c) => ({ code: c, name: `${c} (Campus Grad 200+)` })),
-    ];
-    return combined.slice().sort((a, b) => a.code.localeCompare(b.code));
-  }, [selectedDepts]);
+  // Strictly alphabetized department list of all UC Berkeley departments (A–Z)
+  const allDeptsList = ALL_BERKELEY_DEPARTMENTS;
 
   const deptDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -180,17 +158,6 @@ export function CourseRecommender({
       }
       return next;
     });
-  };
-
-  const handleAddCustomDept = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = customDeptInput.trim().toUpperCase();
-    if (!clean) return;
-    if (!selectedDepts.includes(clean)) {
-      setSelectedDepts((prev) => [...prev, clean]);
-      void fetchDeptCourses(clean);
-    }
-    setCustomDeptInput("");
   };
 
   const plannedByCourseId = useMemo(() => {
@@ -557,37 +524,45 @@ export function CourseRecommender({
                 className="inline-flex h-8 items-center justify-between gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] hover:bg-[#F5F5F7]"
               >
                 <Building2 className="h-3.5 w-3.5 text-[#003262]" />
-                <span>
-                  {isOnlyMba ? "MBA" : `${selectedDepts.length} Depts`}
+                <span className="font-semibold text-[#1D1D1F]">
+                  {isOnlyMba
+                    ? "Depts: MBA Only"
+                    : selectedDepts.length <= 2
+                    ? `Depts: ${selectedDepts.join(", ")}`
+                    : `Depts: ${selectedDepts.length} Selected`}
                 </span>
                 <ChevronDown className="h-3 w-3 text-[#6E6E73]" />
               </button>
 
               {deptDropdownOpen && (
-                <div className="absolute right-0 sm:left-0 top-full z-40 mt-1 w-72 rounded-[8px] border border-[#D1D1D6] bg-white p-2 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-1.5 text-[11px] font-semibold text-[#6E6E73]">
-                    <span>Graduate Departments (200+)</span>
+                <div className="absolute right-0 sm:left-0 top-full z-40 mt-1 w-80 rounded-[8px] border border-[#D1D1D6] bg-white p-2 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-1.5 px-1 text-[11px] font-semibold text-[#6E6E73]">
+                    <span>All UC Berkeley Departments ({ALL_BERKELEY_DEPARTMENTS.length})</span>
                     {!isOnlyMba && (
                       <button
                         type="button"
                         onClick={() => setSelectedDepts(["MBA"])}
-                        className="inline-flex items-center gap-0.5 text-[#003262] hover:underline"
+                        className="inline-flex items-center gap-1 text-[#003262] font-semibold hover:underline"
                       >
                         <RotateCcw className="h-2.5 w-2.5" />
-                        <span>MBA Only</span>
+                        <span>Reset (MBA Only)</span>
                       </button>
                     )}
                   </div>
 
-                  {/* Department Checkbox List */}
-                  <div className="max-h-56 overflow-y-auto py-1 space-y-0.5">
+                  {/* Department Checkbox List: Alphabetical A to Z */}
+                  <div className="max-h-80 overflow-y-auto py-1 divide-y divide-[#F2F2F7]">
                     {allDeptsList.map((dept) => {
                       const checked = selectedDepts.includes(dept.code);
                       const isLoading = loadingDepts.has(dept.code);
                       return (
                         <label
                           key={dept.code}
-                          className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-[#F5F5F7] cursor-pointer"
+                          className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs cursor-pointer transition-colors ${
+                            checked
+                              ? "bg-[#003262]/5 font-semibold text-[#003262]"
+                              : "text-[#1D1D1F] hover:bg-[#F5F5F7]"
+                          }`}
                         >
                           <input
                             type="checkbox"
@@ -595,38 +570,19 @@ export function CourseRecommender({
                             onChange={() => handleToggleDept(dept.code)}
                             className="rounded border-[#D1D1D6] text-[#003262] focus:ring-0"
                           />
-                          <span className="font-semibold text-[#1D1D1F]">{dept.code}</span>
+                          <span className="w-16 shrink-0 font-semibold tracking-tight">{dept.code}</span>
                           <span className="text-[11px] text-[#6E6E73] truncate flex-1">
                             {dept.name}
                           </span>
                           {isLoading && (
-                            <span className="text-[10px] text-[#003262] animate-pulse">Loading...</span>
+                            <span className="text-[10px] text-[#003262] font-normal animate-pulse">
+                              Loading...
+                            </span>
                           )}
                         </label>
                       );
                     })}
                   </div>
-
-                  {/* Add Custom Dept Form */}
-                  <form
-                    onSubmit={handleAddCustomDept}
-                    className="flex items-center gap-1.5 border-t border-[#E5E5EA] pt-1.5"
-                  >
-                    <input
-                      type="text"
-                      value={customDeptInput}
-                      onChange={(e) => setCustomDeptInput(e.target.value)}
-                      placeholder="Add dept (e.g. ESPM)..."
-                      className="h-6 flex-1 rounded border border-[#D1D1D6] px-1.5 text-xs text-[#1D1D1F] outline-none uppercase placeholder:normal-case placeholder:text-[#8E8E93]"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!customDeptInput.trim()}
-                      className="h-6 rounded bg-[#003262] px-2 text-xs font-medium text-white hover:bg-[#002145] disabled:opacity-40"
-                    >
-                      Add
-                    </button>
-                  </form>
                 </div>
               )}
             </div>
