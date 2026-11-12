@@ -51,7 +51,9 @@ export function Navbar({
   }, [currentProfile?.avatarUrl]);
 
   const isCoordinator = Boolean(currentProfile?.isAdmin);
-  const isY2 = currentProfile?.classYear === "Y2";
+  const isY2 =
+    currentProfile?.classYear === "Y2" ||
+    (currentProfile?.graduationYear != null && currentProfile.graduationYear <= 2027);
 
   const tabs: { id: AppTab; label: string; badge?: number; icon?: "shield" }[] = [
     {

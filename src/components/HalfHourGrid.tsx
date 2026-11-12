@@ -191,6 +191,10 @@ export function HalfHourGrid({
 
   const { termPrefix, canBlock } = semesterTermPrefixes(semesterId, activePart);
   const supportsBlockedOverlay = semesterId === "Y1_Fall" || semesterId === "Y1_Spring";
+  const isSemesterY2 =
+    semesterId.startsWith("Y2_") ||
+    profile.classYear === "Y2" ||
+    (profile.graduationYear != null && profile.graduationYear <= 2027);
 
   const semesterEntries = useMemo(() => {
     return buildUnifiedPlanEntries(profile, sections).filter(
@@ -633,15 +637,17 @@ export function HalfHourGrid({
             Weekly Timetable
           </h2>
           <div className="hidden sm:flex items-center gap-2.5 text-[11px] text-[#6E6E73]">
-            <span className="inline-flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-[#003262]" />
-              Core
-            </span>
+            {!isSemesterY2 && (
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-[#003262]" />
+                Core
+              </span>
+            )}
             <span className="inline-flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-[#0F6B4E]" />
               Elective
             </span>
-            {hasWaitingSwaps && (
+            {hasWaitingSwaps && !isSemesterY2 && (
               <span className="inline-flex items-center gap-1 text-[#0284C7]">
                 <span className="h-2 w-2 rounded-full border border-dashed border-[#0284C7] bg-[#F0F9FF]" />
                 Swap Target
@@ -844,7 +850,7 @@ export function HalfHourGrid({
                               <span className="font-bold text-[11px] text-current tracking-tight truncate">
                                 {b.code}
                               </span>
-                              {b.cohort && !isNarrow && (
+                              {!isSemesterY2 && b.cohort && !isNarrow && (
                                 <span className="rounded bg-black/5 px-1 py-0.5 text-[10px] font-semibold text-current shrink-0">
                                   {b.cohort}
                                 </span>
@@ -995,7 +1001,7 @@ export function HalfHourGrid({
                     <span className="font-semibold text-xs tracking-tight text-[#003262]">
                       {selectedBlock.code}
                     </span>
-                    {selectedBlock.cohort && (
+                    {!isSemesterY2 && selectedBlock.cohort && (
                       <span className="rounded bg-[#003262]/10 px-1.5 py-0.5 text-[11px] font-semibold text-[#003262]">
                         Cohort {selectedBlock.cohort}
                       </span>

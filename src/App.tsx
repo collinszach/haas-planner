@@ -483,7 +483,12 @@ export function App() {
     return <AuthScreen onEnterSandbox={handleEnterSandbox} initialError={authError} />;
   }
 
+  const isY2 =
+    profile?.classYear === "Y2" ||
+    (profile?.graduationYear != null && profile.graduationYear <= 2027);
+
   const needsCohortYearConfirm =
+    !isY2 &&
     Boolean(profile) &&
     Boolean(programConfig.academicYear) &&
     profile?.confirmedYear !== programConfig.academicYear;
@@ -499,7 +504,6 @@ export function App() {
   const visibleMatches = matches.filter((m) => m.status !== "cancelled");
   const readyMatches = visibleMatches.filter((m) => m.status === "matched");
   const isCoordinator = Boolean(profile?.isAdmin);
-  const isY2 = profile?.classYear === "Y2";
   const currentTab: AppTab =
     (activeTab === "coordinator" && !isCoordinator) || (activeTab === "swaps" && isY2)
       ? "planner"
