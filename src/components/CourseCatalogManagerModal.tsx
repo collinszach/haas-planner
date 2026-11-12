@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   FileText,
   RotateCcw,
+  ShieldCheck,
   Upload,
   X,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import {
 interface CourseCatalogManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isCoordinator?: boolean;
   onCatalogUpdated?: () => void;
 }
 
@@ -35,10 +37,11 @@ type Tab = "download" | "upload";
 export function CourseCatalogManagerModal({
   isOpen,
   onClose,
+  isCoordinator = false,
   onCatalogUpdated,
 }: CourseCatalogManagerModalProps) {
   const fileInputId = useId();
-  const [activeTab, setActiveTab] = useState<Tab>("upload");
+  const [activeTab, setActiveTab] = useState<Tab>(isCoordinator ? "upload" : "download");
   const [forcedSource, setForcedSource] = useState<"auto" | "haas" | "berkeley">("auto");
   const [rawText, setRawText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
@@ -92,6 +95,12 @@ export function CourseCatalogManagerModal({
   };
 
   const handleImportMerge = async () => {
+    if (!isCoordinator) {
+      setStatusMessage(
+        "Permission denied: Only designated program coordinators can update course offerings and schedule times.",
+      );
+      return;
+    }
     if (parsedCourses.length === 0) return;
     const existing = getStoredCustomCourses();
     const byCode = new Map<string, CatalogCourse>();
@@ -140,6 +149,12 @@ export function CourseCatalogManagerModal({
   };
 
   const handleResetBaseline = () => {
+    if (!isCoordinator) {
+      setStatusMessage(
+        "Permission denied: Only designated program coordinators can update course offerings and schedule times.",
+      );
+      return;
+    }
     if (window.confirm("Reset all uploaded courses back to the official Haas 2026–2027 catalog baseline?")) {
       clearCustomCourses();
       setStatusMessage("Course catalog restored to official baseline.");
@@ -167,7 +182,9 @@ export function CourseCatalogManagerModal({
                 id="catalog-manager-title"
                 className="text-sm font-semibold tracking-[-0.01em] text-[#1D1D1F]"
               >
-                Course Catalog Manager (CSV Pull &amp; Upload)
+                {isCoordinator
+                  ? "Course Catalog Manager (CSV Pull & Upload)"
+                  : "Course Schedule Export (CSV)"}
               </h2>
             </div>
           </div>
@@ -182,34 +199,46 @@ export function CourseCatalogManagerModal({
         </div>
 
         {/* Tab Switcher */}
-        <div className="border-b border-[#E5E5EA] px-5 pt-3">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("upload")}
-              className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-semibold transition ${
-                activeTab === "upload"
-                  ? "border-[#003262] text-[#003262]"
-                  : "border-transparent text-[#6E6E73] hover:text-[#1D1D1F]"
-              }`}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              <span>Upload / Import Courses</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("download")}
-              className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-semibold transition ${
-                activeTab === "download"
-                  ? "border-[#003262] text-[#003262]"
-                  : "border-transparent text-[#6E6E73] hover:text-[#1D1D1F]"
-              }`}
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span>Pull Down Courses (CSV)</span>
-            </button>
+        {isCoordinator ? (
+          <div className="border-b border-[#E5E5EA] px-5 pt-3">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("upload")}
+                className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-semibold transition ${
+                  activeTab === "upload"
+                    ? "border-[#003262] text-[#003262]"
+                    : "border-transparent text-[#6E6E73] hover:text-[#1D1D1F]"
+                }`}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>Upload / Import Courses</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("download")}
+                className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-semibold transition ${
+                  activeTab === "download"
+                    ? "border-[#003262] text-[#003262]"
+                    : "border-transparent text-[#6E6E73] hover:text-[#1D1D1F]"
+                }`}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Pull Down Courses (CSV)</span>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="border-b border-[#E5E5EA] px-5 py-2.5">
+            <div className="flex items-center gap-2 text-xs text-[#48484A]">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-[#003262]" />
+              <span>
+                Planner course times, offerings, and backend data can only be modified by designated
+                coordinators. You can pull down the schedule to CSV below.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="max-h-[70vh] overflow-y-auto p-5 space-y-4">

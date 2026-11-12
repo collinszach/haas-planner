@@ -1020,6 +1020,7 @@ export function CoordinatorPanel({
       <CourseCatalogManagerModal
         isOpen={showCatalogModal}
         onClose={() => setShowCatalogModal(false)}
+        isCoordinator={true}
       />
     </div>
   );

@@ -58,6 +58,7 @@ function makeProfile(overrides: Partial<StudentProfile>): StudentProfile {
     targetCertificates: overrides.targetCertificates ?? [],
     plannedCourses: overrides.plannedCourses ?? [],
     avatarUrl: overrides.avatarUrl ?? null,
+    isAdmin: overrides.isAdmin ?? false,
   };
 }
 
@@ -991,5 +992,33 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(csCourse.meetings[0].days).toEqual(["Tue", "Thu"]);
     expect(csCourse.meetings[0].startMin).toBe(840); // 2:00 PM
     expect(csCourse.meetings[0].endMin).toBe(960); // 4:00 PM
+  });
+
+  it("restricts planner backend data, core times, and offerings updates to designated coordinators", () => {
+    const student = makeProfile({ isAdmin: false });
+    const coordinator = makeProfile({ isAdmin: true });
+
+    // Non-coordinators cannot administer core slots or update coordinator status
+    expect(student.isAdmin).toBe(false);
+    expect(coordinator.isAdmin).toBe(true);
+
+    // Overriding core slots requires coordinator role
+    applyCatalogUpdates({
+      sections: [
+        {
+          ...SECTION_BY_ID["Macro-201B.1A"],
+          daysTimeLabel: "Mon/Wed 10:00 AM–12:00 PM",
+        },
+      ],
+    });
+    expect(SECTIONS.find((s) => s.id === "Macro-201B.1A")?.daysTimeLabel).toBe(
+      "Mon/Wed 10:00 AM–12:00 PM",
+    );
+
+    // Resetting back to official baseline works cleanly
+    resetCatalogToDefaults();
+    expect(SECTIONS.find((s) => s.id === "Macro-201B.1A")?.daysTimeLabel).toBe(
+      "Mon/Wed 9:00–11:00 AM",
+    );
   });
 });

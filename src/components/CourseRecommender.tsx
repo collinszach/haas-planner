@@ -25,6 +25,7 @@ import type {
 import {
   ArrowRightLeft,
   Check,
+  Download,
   ExternalLink,
   FileSpreadsheet,
   Plus,
@@ -348,15 +349,27 @@ export function CourseRecommender({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCatalogModal(true)}
-              aria-label="Pull down or upload course catalog CSV"
-              className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 py-1 text-xs font-medium text-[#48484A] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F]"
-            >
-              <FileSpreadsheet className="h-3 w-3 text-[#003262]" />
-              <span>Pull / Upload CSV</span>
-            </button>
+            {profile.isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setShowCatalogModal(true)}
+                aria-label="Manage catalog CSV"
+                className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 py-1 text-xs font-medium text-[#48484A] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F]"
+              >
+                <FileSpreadsheet className="h-3 w-3 text-[#003262]" />
+                <span>Catalog Manager</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowCatalogModal(true)}
+                aria-label="Export course catalog to CSV"
+                className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 py-1 text-xs font-medium text-[#48484A] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F]"
+              >
+                <Download className="h-3 w-3 text-[#003262]" />
+                <span>Export CSV</span>
+              </button>
+            )}
 
             <div
               role="tablist"
@@ -919,6 +932,7 @@ export function CourseRecommender({
       <CourseCatalogManagerModal
         isOpen={showCatalogModal}
         onClose={() => setShowCatalogModal(false)}
+        isCoordinator={Boolean(profile.isAdmin)}
         onCatalogUpdated={() => setCatalogVersion((v) => v + 1)}
       />
     </section>
