@@ -82,7 +82,7 @@ export interface PlacedBlock {
   evaluation?: CourseEvaluation | null;
 }
 
-export const ROW_PX = 32;
+export const ROW_PX = 34;
 
 export function formatRoomName(raw?: string | null): string {
   if (!raw) return "Haas Campus";
@@ -723,9 +723,9 @@ export function HalfHourGrid({
 
       {/* 30-Minute Calendar Matrix */}
       <div className="max-h-[600px] select-none overflow-auto bg-white">
-        <div className="min-w-[780px]">
+        <div className="min-w-[820px]">
           {/* Sticky Header Row */}
-          <div className="sticky top-0 z-20 grid grid-cols-[72px_repeat(5,minmax(0,1fr))] border-b border-[#E5E5EA] bg-[#FAFAFC]">
+          <div className="sticky top-0 z-20 grid grid-cols-[68px_repeat(5,minmax(0,1fr))] border-b border-[#E5E5EA] bg-[#FAFAFC]">
             <div className="border-r border-[#E5E5EA] px-2 py-2 text-right pr-2 text-xs font-medium text-[#6E6E73]">
               Time
             </div>
@@ -740,14 +740,14 @@ export function HalfHourGrid({
           </div>
 
           {/* Grid Body with interactive 30m cells + absolute overlay track */}
-          <div className="relative grid grid-cols-[72px_repeat(5,minmax(0,1fr))]">
+          <div className="relative grid grid-cols-[68px_repeat(5,minmax(0,1fr))]">
             {HALF_HOUR_STARTS.map((startMin, rowIdx) => {
               const isHour = startMin % 60 === 0;
               return (
                 <div key={startMin} className="contents">
                   <div
                     style={{ height: `${ROW_PX}px` }}
-                    className={`tabular-nums border-r border-[#E5E5EA] pr-2 text-xs leading-[32px] flex items-center justify-end ${
+                    className={`tabular-nums border-r border-[#E5E5EA] pr-2 text-xs leading-[34px] flex items-center justify-end ${
                       isHour
                         ? "border-t border-[#E5E5EA] font-medium text-[#6E6E73]"
                         : "border-t border-[#F2F2F7] text-[#6E6E73]"
@@ -797,7 +797,7 @@ export function HalfHourGrid({
             })}
 
             {/* Overlay Column Track for Placed Course Intervals */}
-            <div className="pointer-events-none absolute inset-0 grid grid-cols-[72px_repeat(5,minmax(0,1fr))]">
+            <div className="pointer-events-none absolute inset-0 grid grid-cols-[68px_repeat(5,minmax(0,1fr))]">
               <div />
               {SCHEDULE_WEEKDAYS.map((day) => {
                 const dayBlocks = placedBlocks.filter((b) => b.day === day);
@@ -838,10 +838,9 @@ export function HalfHourGrid({
                       const leftPct = lane * widthPct;
 
                       const isNarrow = widthPct <= 60;
-                      const isVeryShort = b.rowSpan === 1; // 30m (~28px)
-                      const isShort = b.rowSpan === 2; // 60m (~60px)
-                      const isMedium = b.rowSpan === 3; // 90m (~92px)
-                      const isTall = b.rowSpan >= 4; // 2h–3h+ (~124px–188px)
+                      const isVeryShort = b.rowSpan === 1; // 30m (~30px)
+                      const isShort = b.rowSpan === 2; // 60m (~64px)
+                      const isTall = b.rowSpan >= 4; // 2h–3h+ (~132px–200px)
 
                       return (
                         <div
@@ -853,28 +852,28 @@ export function HalfHourGrid({
                             width: `calc(${widthPct}% - 4px)`,
                           }}
                           onClick={() => setSelectedBlock(b)}
-                          className={`pointer-events-auto absolute z-10 flex flex-col justify-start overflow-hidden rounded-[5px] border text-left cursor-pointer transition-all hover:z-30 hover:shadow-md ${
-                            isNarrow ? "p-1 gap-0.5" : "px-2 py-1.5 gap-0.5"
+                          className={`pointer-events-auto absolute z-10 flex flex-col justify-start overflow-hidden rounded-[6px] border text-left cursor-pointer transition-all hover:z-30 hover:shadow-md ${
+                            isNarrow ? "p-1.5 gap-0.5" : "p-2 gap-1"
                           } ${blockStyle(b)}`}
                           title={`${b.code}: ${b.title}\n📍 Location: ${b.room}\n🕒 Time: ${b.timeString}\n👤 Instructor: ${b.instructor || "Haas Faculty"}${b.units ? `\n🎓 Units: ${b.units}` : ""}${b.format ? `\n📅 Format: ${b.format}` : ""}${b.evaluation ? `\n⭐ Worth: ${b.evaluation.courseWorth?.toFixed(1)}/7 · Difficulty: ${b.evaluation.difficulty?.toFixed(1)}/7` : ""}`}
                         >
                           {/* Top Row: Dot indicator + Course code + Cohort + Units + Trash */}
                           <div className="flex items-center justify-between gap-1 leading-tight shrink-0">
-                            <div className="flex min-w-0 flex-1 items-center gap-1">
+                            <div className="flex min-w-0 flex-1 items-center gap-1.5">
                               <span
                                 aria-hidden="true"
                                 className={`h-1.5 w-1.5 shrink-0 rounded-full ${blockDotColor(b)}`}
                               />
-                              <span className="font-semibold text-[11px] text-current tracking-tight truncate">
+                              <span className="font-bold text-[11px] text-current tracking-tight truncate">
                                 {b.code}
                               </span>
                               {b.cohort && !isNarrow && (
-                                <span className="rounded bg-black/5 px-1 py-0.5 text-[11px] font-medium text-current shrink-0">
+                                <span className="rounded bg-black/5 px-1 py-0.5 text-[10px] font-semibold text-current shrink-0">
                                   {b.cohort}
                                 </span>
                               )}
                               {b.units !== undefined && b.units > 0 && !isVeryShort && !isNarrow && (
-                                <span className="font-mono text-[11px] opacity-75 tabular-nums shrink-0">
+                                <span className="font-mono text-[10.5px] opacity-75 tabular-nums shrink-0">
                                   {b.units}u
                                 </span>
                               )}
@@ -888,34 +887,30 @@ export function HalfHourGrid({
                                   void onRemoveCourse(b.removableInstanceId!);
                                 }}
                                 aria-label={`Remove ${b.code} from plan`}
-                                className="shrink-0 rounded p-0.5 text-current/70 hover:bg-black/10 hover:text-current"
+                                className="shrink-0 rounded p-0.5 text-current/60 hover:bg-black/10 hover:text-current transition"
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
                             )}
                           </div>
 
-                          {/* Full Course Title (wrapped and visible across lines!) */}
+                          {/* Full Course Title (Prominent, clean, line-clamped without clumping) */}
                           {!isVeryShort && b.title && (
                             <div
                               className={`font-semibold text-[11px] leading-[14px] break-words text-[#1D1D1F] ${
-                                isShort || isNarrow
-                                  ? "line-clamp-1"
-                                  : isMedium
-                                    ? "line-clamp-2"
-                                    : "line-clamp-3"
+                                isShort || isNarrow ? "line-clamp-1" : "line-clamp-2"
                               }`}
                             >
                               {b.title}
                             </div>
                           )}
 
-                          {/* Location & Time: combined on one line if short/narrow, separate lines if medium/tall */}
+                          {/* Location & Time: compact single line if short or narrow, stacked if medium or tall */}
                           {!isVeryShort && (isShort || isNarrow) && (
-                            <div className="flex items-center gap-1 text-[11px] font-medium leading-none text-current opacity-90 truncate">
-                              <MapPin className="h-2.5 w-2.5 shrink-0 text-current" />
+                            <div className="flex items-center gap-1 text-[10.5px] font-medium leading-none text-current opacity-90 truncate">
+                              <MapPin className="h-2.5 w-2.5 shrink-0 text-current/80" />
                               <span className="truncate">{b.room}</span>
-                              <span className="opacity-60">·</span>
+                              <span className="opacity-40">·</span>
                               <span className="font-mono tabular-nums whitespace-nowrap shrink-0">
                                 {formatTimeRangeCompact(b.startMin, b.endMin, true)}
                               </span>
@@ -923,37 +918,44 @@ export function HalfHourGrid({
                           )}
 
                           {!isVeryShort && !isShort && !isNarrow && (
-                            <>
+                            <div className="flex flex-col gap-0.5 text-[10.5px] leading-tight text-current opacity-90">
                               {b.room && (
-                                <div className="flex items-center gap-1 text-[11px] font-medium leading-none text-current opacity-90 truncate">
-                                  <MapPin className="h-2.5 w-2.5 shrink-0 text-current" />
+                                <div className="flex items-center gap-1 font-medium truncate">
+                                  <MapPin className="h-2.5 w-2.5 shrink-0 text-current/80" />
                                   <span className="truncate">{b.room}</span>
                                 </div>
                               )}
-                              <div className="flex items-center gap-1 font-mono text-[11px] leading-none tabular-nums opacity-90 whitespace-nowrap">
-                                <Clock className="h-2.5 w-2.5 shrink-0" />
+                              <div className="flex items-center gap-1 font-mono tabular-nums whitespace-nowrap">
+                                <Clock className="h-2.5 w-2.5 shrink-0 text-current/70" />
                                 <span className="whitespace-nowrap">{b.timeString}</span>
-                                {b.instructor && isTall && (
-                                  <span className="truncate font-sans opacity-80 text-[11px]">
-                                    · {b.instructor}
-                                  </span>
-                                )}
                               </div>
-                            </>
+                            </div>
                           )}
 
-                          {/* Extra info for tall blocks (ratings) */}
-                          {isTall && !isNarrow && b.evaluation && (
-                            <div className="flex items-center gap-1 text-[11px] font-medium opacity-85 pt-0.5 whitespace-nowrap">
-                              <Star className="h-2.5 w-2.5 shrink-0 fill-amber-400 text-amber-500" />
-                              <span>Worth {b.evaluation.courseWorth?.toFixed(1)}/7 · Diff {b.evaluation.difficulty?.toFixed(1)}/7</span>
+                          {/* Extra info for tall blocks (Instructor & Evaluation) */}
+                          {isTall && !isNarrow && (
+                            <div className="flex flex-col gap-0.5 pt-0.5 text-[10.5px] leading-tight text-current opacity-85">
+                              {b.instructor && (
+                                <div className="truncate font-sans">
+                                  <span className="opacity-60">Prof:</span> {b.instructor}
+                                </div>
+                              )}
+                              {b.evaluation && (
+                                <div className="flex items-center gap-1 font-medium whitespace-nowrap">
+                                  <Star className="h-2.5 w-2.5 shrink-0 fill-amber-400 text-amber-500" />
+                                  <span>
+                                    Worth {b.evaluation.courseWorth?.toFixed(1)}/7 · Diff{" "}
+                                    {b.evaluation.difficulty?.toFixed(1)}/7
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
 
                           {/* Swap status badge */}
                           {b.swapLabel && (
                             <div
-                              className={`inline-flex items-center gap-1 text-[11px] font-semibold leading-none truncate ${
+                              className={`inline-flex items-center gap-1 text-[10px] font-semibold leading-none truncate ${
                                 b.swapState === "matched"
                                   ? "text-[#0F6B4E]"
                                   : b.kind === "swap_target"
@@ -974,7 +976,7 @@ export function HalfHourGrid({
 
                           {/* Conflict notice */}
                           {b.hasConflict && b.conflictText && !b.swapLabel && (
-                            <div className="inline-flex items-center gap-1 text-[11px] font-semibold leading-none text-[#B42318] truncate">
+                            <div className="inline-flex items-center gap-1 text-[10px] font-semibold leading-none text-[#B42318] truncate rounded bg-red-100/80 px-1 py-0.5">
                               <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
                               <span className="truncate">{b.conflictText}</span>
                             </div>

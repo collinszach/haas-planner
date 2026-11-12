@@ -9,6 +9,7 @@ import { MarketPulse } from "@/components/MarketPulse";
 import { MatchesPanel } from "@/components/MatchesPanel";
 import { Navbar, type AppTab } from "@/components/Navbar";
 import { ProfileSetup } from "@/components/ProfileSetup";
+import { QuickTourModal } from "@/components/QuickTourModal";
 import { DEFAULT_SECTIONS, DEFAULT_SWAP_WINDOWS } from "@/data/sections";
 import {
   adminResetAcademicYear,
@@ -84,6 +85,10 @@ export function App() {
   const [activeSemester, setActiveSemester] = useState<SemesterId>("Y1_Spring");
   const [editingProfile, setEditingProfile] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [showTour, setShowTour] = useState(false);
+  const [mobileWorkbenchView, setMobileWorkbenchView] = useState<"schedule" | "catalog">(
+    "schedule",
+  );
 
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -244,6 +249,13 @@ export function App() {
       supabase?.removeChannel(channel);
     };
   }, [mode, authUserId, loadDashboard, showToast]);
+
+  useEffect(() => {
+    const completed = localStorage.getItem("haas_tour_completed");
+    if (!completed && profile && profile.fullName.trim()) {
+      setShowTour(true);
+    }
+  }, [profile]);
 
   const handleEnterSandbox = async () => {
     const uid = getActiveSandboxUserId();
@@ -520,6 +532,7 @@ export function App() {
         onSwitchDemoUser={handleSwitchDemoUser}
         onResetSandbox={handleResetSandbox}
         onOpenProfile={() => setEditingProfile(true)}
+        onOpenTour={() => setShowTour(true)}
         onSignOut={handleSignOut}
       />
 
@@ -661,9 +674,41 @@ export function App() {
                   </div>
                 </div>
 
+                {/* Mobile Workbench View Switcher (Visible on < lg screens only) */}
+                <div className="sticky top-[52px] z-20 flex border-b border-[#E5E5EA] bg-white p-1.5 lg:hidden">
+                  <div className="grid w-full grid-cols-2 gap-1 rounded-[7px] bg-[#E5E5EA] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setMobileWorkbenchView("schedule")}
+                      className={`flex items-center justify-center gap-1.5 rounded-[5px] py-1.5 text-xs font-semibold transition ${
+                        mobileWorkbenchView === "schedule"
+                          ? "bg-white text-[#1D1D1F] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                          : "text-[#6E6E73] hover:text-[#1D1D1F]"
+                      }`}
+                    >
+                      <span>📅 Weekly Schedule</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileWorkbenchView("catalog")}
+                      className={`flex items-center justify-center gap-1.5 rounded-[5px] py-1.5 text-xs font-semibold transition ${
+                        mobileWorkbenchView === "catalog"
+                          ? "bg-white text-[#1D1D1F] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                          : "text-[#6E6E73] hover:text-[#1D1D1F]"
+                      }`}
+                    >
+                      <span>🔍 Course Catalog</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Flush 2-Column Split Workbench: Left Calendar + Right Course Inspector */}
                 <div className="grid lg:grid-cols-[1.42fr_1fr] lg:divide-x lg:divide-[#E5E5EA]">
-                  <div className="flex min-w-0 flex-col">
+                  <div
+                    className={`min-w-0 flex-col ${
+                      mobileWorkbenchView === "schedule" ? "flex" : "hidden lg:flex"
+                    }`}
+                  >
                     {!isY2 &&
                       (activeSemester === "Y1_Spring" ||
                         (activeSemester === "Y1_Fall" &&
@@ -700,7 +745,11 @@ export function App() {
                     />
                   </div>
 
-                  <div className="min-w-0 border-t border-[#E5E5EA] bg-white lg:border-t-0">
+                  <div
+                    className={`min-w-0 border-t border-[#E5E5EA] bg-white lg:border-t-0 ${
+                      mobileWorkbenchView === "catalog" ? "block" : "hidden lg:block"
+                    }`}
+                  >
                     <CourseRecommender
                       semesterId={activeSemester}
                       profile={profile}
@@ -804,6 +853,8 @@ export function App() {
           </div>
         )}
       </main>
+
+      <QuickTourModal isOpen={showTour} onClose={() => setShowTour(false)} />
     </div>
   );
 }

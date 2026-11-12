@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { StudentProfile } from "@/types/swap";
-import { LogOut, RotateCcw, ShieldCheck } from "lucide-react";
+import { Compass, LogOut, RotateCcw, ShieldCheck } from "lucide-react";
 
 export type AppTab = "planner" | "swaps" | "audit" | "coordinator";
 
@@ -16,6 +16,7 @@ interface NavbarProps {
   onSwitchDemoUser: (uid: string) => void;
   onResetSandbox: () => void;
   onOpenProfile: () => void;
+  onOpenTour?: () => void;
   onSignOut: () => void;
 }
 
@@ -42,6 +43,7 @@ export function Navbar({
   onSwitchDemoUser,
   onResetSandbox,
   onOpenProfile,
+  onOpenTour,
   onSignOut,
 }: NavbarProps) {
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -176,6 +178,18 @@ export function Navbar({
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>
             </div>
+          )}
+
+          {onOpenTour && (
+            <button
+              type="button"
+              onClick={onOpenTour}
+              aria-label="Open quick tour"
+              className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#003262] transition hover:bg-[#F5F5F7]"
+            >
+              <Compass className="h-3.5 w-3.5 text-[#003262]" />
+              <span className="hidden sm:inline">Tour</span>
+            </button>
           )}
 
           {currentProfile && (

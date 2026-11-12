@@ -58,7 +58,6 @@ interface CourseRecommenderProps {
 type FitView = "fits" | "swap_unlocks" | "planned" | "all";
 type SortOption = "score" | "seats" | "worth" | "instructor" | "ease";
 type CategoryFilter = "ALL" | "EL" | "BT" | CertificateCode;
-type FormatFilter = "ALL" | "Full" | "A" | "B" | "WeekendBlock" | "10W";
 
 export const POPULAR_GRAD_DEPTS = [
   { code: "MBA", name: "Haas School of Business (MBA Electives)" },
@@ -76,12 +75,6 @@ export const POPULAR_GRAD_DEPTS = [
   { code: "CIVENG", name: "Civil & Environmental Engineering (200+)" },
   { code: "ELENG", name: "Electrical Engineering (200+)" },
 ] as const;
-
-function matchesFormatFilter(part: CatalogCourse["part"], filter: FormatFilter): boolean {
-  if (filter === "ALL") return true;
-  if (filter === "WeekendBlock") return part === "Weekend" || part === "Block";
-  return part === filter;
-}
 
 export function CourseRecommender({
   semesterId,
@@ -124,7 +117,6 @@ export function CourseRecommender({
   const [sortBy, setSortBy] = useState<SortOption>("score");
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
-  const [formatFilter, setFormatFilter] = useState<FormatFilter>("ALL");
   const [showCatalogModal, setShowCatalogModal] = useState(false);
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -290,21 +282,6 @@ export function CourseRecommender({
     };
   }, [allRecommendations, plannedSemesterEntries.length, plannedAllEntries.length]);
 
-  const availableFormats = useMemo(() => {
-    const parts = new Set(allRecommendations.map((r) => r.course.part));
-    const options: Array<{ value: FormatFilter; label: string }> = [
-      { value: "ALL", label: "All Formats" },
-    ];
-    if (parts.has("Full")) options.push({ value: "Full", label: "Full Term" });
-    if (parts.has("A")) options.push({ value: "A", label: "Part A (Wks 1–7)" });
-    if (parts.has("B")) options.push({ value: "B", label: "Part B (Wks 8–14)" });
-    if (parts.has("10W")) options.push({ value: "10W", label: "10-Week" });
-    if (parts.has("Weekend") || parts.has("Block")) {
-      options.push({ value: "WeekendBlock", label: "Weekend / Block" });
-    }
-    return options;
-  }, [allRecommendations]);
-
   const springBudget = useMemo(() => {
     const springSummary = audit.bySemester.find((s) => s.semesterId === "Y1_Spring");
     const coreUnits = springSummary?.coreUnits ?? 7;
@@ -325,7 +302,6 @@ export function CourseRecommender({
   const hasActiveFilters =
     query.trim().length > 0 ||
     categoryFilter !== "ALL" ||
-    formatFilter !== "ALL" ||
     selectedDepts.length > 1 ||
     !selectedDepts.includes("MBA") ||
     fitView === "planned";
@@ -333,7 +309,6 @@ export function CourseRecommender({
   const resetFilters = () => {
     setQuery("");
     setCategoryFilter("ALL");
-    setFormatFilter("ALL");
     setFitView("fits");
     setPlannedScope("semester");
     setSelectedDepts(["MBA"]);
@@ -425,7 +400,6 @@ export function CourseRecommender({
     const list = baseList.filter((rec) => {
       if (effectiveFitView === "fits" && rec.fitStatus !== "fits") return false;
       if (effectiveFitView === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
-      if (!matchesFormatFilter(rec.course.part, formatFilter)) return false;
       if (categoryFilter === "EL" && !rec.course.experiential) return false;
       if (categoryFilter === "BT" && !rec.course.businessTech) return false;
       if (
@@ -474,7 +448,6 @@ export function CourseRecommender({
     plannedSemesterEntries,
     plannedAllEntries,
     audit,
-    formatFilter,
     query,
     categoryFilter,
     sortBy,
@@ -646,61 +619,61 @@ export function CourseRecommender({
             </div>
           </div>
 
-          {/* Schedule Fit Filter Pills */}
+          {/* Schedule Fit Segmented Control */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1">
+            <div className="inline-flex rounded-[7px] bg-[#E5E5EA] p-0.5">
               <button
                 type="button"
                 onClick={() => setFitView("fits")}
-                className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
+                className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
                   effectiveFitView === "fits"
-                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                    ? "bg-white text-[#1D1D1F] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    : "text-[#48484A] hover:text-[#1D1D1F]"
                 }`}
               >
                 Fits Schedule ({counts.fits})
               </button>
 
-              {!isY2 && semesterId === "Y1_Spring" && (
-                <button
-                  type="button"
-                  onClick={() => setFitView("swap_unlocks")}
-                  className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
-                    effectiveFitView === "swap_unlocks"
-                      ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                      : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
-                  }`}
-                >
-                  Swap Unlocks ({counts.swap})
-                </button>
-              )}
-
               <button
                 type="button"
                 aria-pressed={effectiveFitView === "planned"}
                 onClick={() => setFitView("planned")}
-                className={`inline-flex items-center gap-1 rounded-[6px] border px-2.5 py-1 text-xs font-semibold transition ${
+                className={`inline-flex items-center gap-1 rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
                   effectiveFitView === "planned"
-                    ? "border-[#003262] bg-[#003262] text-white shadow-xs"
-                    : "border-[#D1D1D6] bg-white text-[#003262] hover:bg-[#F0F4F8]"
+                    ? "bg-white text-[#003262] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    : "text-[#48484A] hover:text-[#1D1D1F]"
                 }`}
               >
-                <BookmarkCheck className="h-3.5 w-3.5" />
+                <BookmarkCheck className="h-3 w-3 text-[#003262]" />
                 <span>Planned ({counts.planned})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFitView("all")}
-                className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
+                className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
                   effectiveFitView === "all"
-                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                    ? "bg-white text-[#1D1D1F] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    : "text-[#48484A] hover:text-[#1D1D1F]"
                 }`}
               >
                 All ({counts.total})
               </button>
             </div>
+
+            {!isY2 && semesterId === "Y1_Spring" && (
+              <button
+                type="button"
+                onClick={() => setFitView("swap_unlocks")}
+                className={`rounded-[6px] border px-2 py-1 text-xs font-medium transition ${
+                  effectiveFitView === "swap_unlocks"
+                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
+                }`}
+              >
+                Swap Unlocks ({counts.swap})
+              </button>
+            )}
 
             {/* Selected Departments Chips (if non-MBA added) */}
             {!isOnlyMba && (
@@ -727,8 +700,8 @@ export function CourseRecommender({
             )}
           </div>
 
-          {/* Structured Dropdowns: Requirement + Format + Sort */}
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+          {/* Structured Dropdowns: Requirement + Sort */}
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             <select
               aria-label="Filter courses by requirement"
               value={categoryFilter}
@@ -741,19 +714,6 @@ export function CourseRecommender({
               {(["BA", "SB", "AI", "RE"] as CertificateCode[]).map((c) => (
                 <option key={c} value={c}>
                   {c} · {CERTIFICATE_LABELS[c]}
-                </option>
-              ))}
-            </select>
-
-            <select
-              aria-label="Filter courses by term format"
-              value={formatFilter}
-              onChange={(e) => setFormatFilter(e.target.value as FormatFilter)}
-              className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
-            >
-              {availableFormats.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
                 </option>
               ))}
             </select>
