@@ -125,33 +125,28 @@ export function HalfHourGrid({
     ): string | undefined => {
       if (m.kind === "discussion") return undefined;
 
-      // Check against blocked 30-min personal intervals on Y1
+      // Check against blocked 30-min personal intervals in the displayed Part (A or B)
       if (supportsBlockedOverlay) {
-        const prefixToCheck: TermPartPrefix[] =
-          m.part === "Full"
-            ? [
-                `${semesterId === "Y1_Fall" ? "Fall" : "Spring"}A` as TermPartPrefix,
-                `${semesterId === "Y1_Fall" ? "Fall" : "Spring"}B` as TermPartPrefix,
-              ]
-            : [`${semesterId === "Y1_Fall" ? "Fall" : "Spring"}${m.part}` as TermPartPrefix];
-
-        for (const tp of prefixToCheck) {
-          for (let t = Math.floor(m.startMin / 30) * 30; t < m.endMin; t += 30) {
-            if (blockedSet.has(makeSlotToken(tp, day, t))) {
-              return `Overlaps blocked ${formatMinutes12h(t)}`;
-            }
+        const tp = `${semesterId === "Y1_Fall" ? "Fall" : "Spring"}${activePart}` as TermPartPrefix;
+        for (let t = Math.floor(m.startMin / 30) * 30; t < m.endMin; t += 30) {
+          if (blockedSet.has(makeSlotToken(tp, day, t))) {
+            return `Blocked ${formatMinutes12h(t)}`;
           }
         }
       }
 
-      // Check against other active courses in same semester/part
+      // Check against other courses that actually meet in the displayed Part (A or B)
       for (const other of semesterEntries) {
         if (other.instanceId === entry.instanceId) continue;
         for (const om of other.meetings) {
           if (om.nonBlockingCore || om.kind === "discussion") continue;
+          if (!meetingAppliesToPart(om.part, activePart)) continue;
           if (!om.days.includes(day)) continue;
           if (meetingsOverlap(m, om)) {
-            return `Overlaps ${other.code}`;
+            const shortLabel = other.isCore
+              ? sectionLookup[other.courseId]?.course ?? other.code
+              : other.code;
+            return `Overlaps ${shortLabel}`;
           }
         }
       }
@@ -478,6 +473,9 @@ export function HalfHourGrid({
                       return (
                         <div
                           key={b.key}
+                          title={`${b.title} (${formatMinutes12h(b.startMin)}–${formatMinutes12h(b.endMin)})${
+                            b.conflictText ? ` · ${b.conflictText}` : ""
+                          }`}
                           style={{
                             top: `${(b.rowStart - 1) * ROW_PX + 2}px`,
                             height: `${b.rowSpan * ROW_PX - 4}px`,
