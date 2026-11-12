@@ -111,26 +111,7 @@ export function AutoSwapTray({
     diag.conflictingElectivesOrBlocks.length === 0 &&
     !hasPendingConfirmations
   ) {
-    return (
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#B7E4D1] bg-[#E6F5EE] px-4 py-3 text-xs text-[#0F6B4E]">
-        <div className="flex items-center gap-2 font-semibold">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>
-            Spring 2027 Core sections fit your current electives and 30-minute blocks with zero
-            overlaps.
-          </span>
-        </div>
-        {onOpenSwapWorkspace && (
-          <button
-            type="button"
-            onClick={onOpenSwapWorkspace}
-            className="font-semibold text-[#003262] underline-offset-2 hover:underline"
-          >
-            Open Swaps &amp; Queue
-          </button>
-        )}
-      </section>
-    );
+    return null;
   }
 
   const totalLiquidity = unsubmittedLegs.reduce((sum, l) => sum + l.liquidityCount, 0);

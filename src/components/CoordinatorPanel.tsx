@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { SECTIONS } from "@/data/sections";
 import {
+  listCoordinators,
+  setCoordinatorRole,
+  type CoordinatorSummary,
+} from "@/lib/api";
+import {
   auditLegacyGoogleSheetCsv,
   type SheetAuditReport,
 } from "@/lib/sheetAuditor";
@@ -23,6 +28,7 @@ import {
   Save,
   Settings2,
   ShieldCheck,
+  UserPlus,
 } from "lucide-react";
 
 interface CoordinatorPanelProps {
@@ -166,7 +172,16 @@ export function CoordinatorPanel({
 }: CoordinatorPanelProps) {
   const activeSections =
     liveSections && liveSections.length > 0 ? liveSections : SECTIONS;
-  const canManageAdmin = Boolean(profile?.isAdmin) || mode === "sandbox";
+  const canManageAdmin = Boolean(profile?.isAdmin);
+
+  // Designated Coordinator Roster State
+  const [coordinators, setCoordinators] = useState<CoordinatorSummary[]>([]);
+  const [coordEmail, setCoordEmail] = useState("");
+  const [coordBusy, setCoordBusy] = useState(false);
+  const [coordFeedback, setCoordFeedback] = useState<{
+    type: "ok" | "err";
+    text: string;
+  } | null>(null);
 
   // Admin Lifecycle Form State
   const [academicYear, setAcademicYear] = useState(programConfig.academicYear);
@@ -207,6 +222,45 @@ export function CoordinatorPanel({
   useEffect(() => {
     setEditingSections(activeSections);
   }, [activeSections]);
+
+  useEffect(() => {
+    if (!canManageAdmin) return;
+    let active = true;
+    void listCoordinators(mode)
+      .then((list) => {
+        if (active) setCoordinators(list);
+      })
+      .catch(() => {
+        // Handled cleanly if unauthenticated
+      });
+    return () => {
+      active = false;
+    };
+  }, [canManageAdmin, mode]);
+
+  const handleSetCoordinator = async (email: string, nextAdmin: boolean) => {
+    setCoordFeedback(null);
+    setCoordBusy(true);
+    try {
+      await setCoordinatorRole(mode, email, nextAdmin);
+      const updated = await listCoordinators(mode);
+      setCoordinators(updated);
+      if (nextAdmin) setCoordEmail("");
+      setCoordFeedback({
+        type: "ok",
+        text: nextAdmin
+          ? `Granted coordinator access to ${email.trim().toLowerCase()}.`
+          : `Removed coordinator access for ${email.trim().toLowerCase()}.`,
+      });
+    } catch (err) {
+      setCoordFeedback({
+        type: "err",
+        text: err instanceof Error ? err.message : "Could not update coordinator access.",
+      });
+    } finally {
+      setCoordBusy(false);
+    }
+  };
 
   const handleAudit = () => {
     setReport(auditLegacyGoogleSheetCsv(csvText));
@@ -273,8 +327,103 @@ export function CoordinatorPanel({
     );
   };
 
+  if (!canManageAdmin) {
+    return (
+      <section className="rounded-xl border border-[#D8E0EA] bg-white p-6 text-center">
+        <h2 className="font-display text-xl font-bold text-[#003262]">
+          Restricted Coordinator Workspace
+        </h2>
+        <p className="mt-1 text-xs text-[#55687D]">
+          Only designated Haas program coordinators can access swap pool resets, core schedule
+          administration, and sheet audits.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Designated Coordinators Allowlist */}
+      <section className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#D8E0EA] pb-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-bold text-[#003262]">
+              <ShieldCheck className="h-4 w-4 text-[#0F6B4E]" />
+              Designated Coordinators ({coordinators.length})
+            </h2>
+            <p className="mt-0.5 text-xs text-[#55687D]">
+              Only accounts listed here can see or operate the Coordinator tab.
+            </p>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!coordEmail.trim()) return;
+              void handleSetCoordinator(coordEmail, true);
+            }}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <input
+              type="email"
+              value={coordEmail}
+              onChange={(e) => setCoordEmail(e.target.value)}
+              placeholder="teammate@berkeley.edu"
+              className="rounded-lg border border-[#CBD5E1] px-2.5 py-1.5 text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
+            />
+            <button
+              type="submit"
+              disabled={coordBusy || !coordEmail.trim()}
+              className="inline-flex items-center gap-1 rounded-lg bg-[#003262] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#002145] disabled:opacity-50"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              Add Coordinator
+            </button>
+          </form>
+        </div>
+
+        {coordFeedback && (
+          <div
+            className={`mt-3 border-l-2 px-3 py-2 text-xs font-medium ${
+              coordFeedback.type === "ok"
+                ? "border-[#0F6B4E] bg-[#E6F5EE] text-[#0F6B4E]"
+                : "border-[#B42318] bg-[#FEECEB] text-[#B42318]"
+            }`}
+          >
+            {coordFeedback.text}
+          </div>
+        )}
+
+        <div className="mt-3 divide-y divide-[#E4EBF2] rounded-lg bg-[#F8FAFC]">
+          {coordinators.map((c) => {
+            const isSelf =
+              c.id === profile?.id || c.email.toLowerCase() === profile?.email.toLowerCase();
+            return (
+              <div
+                key={c.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 text-xs"
+              >
+                <div>
+                  <span className="font-semibold text-[#0F1E30]">{c.fullName}</span>{" "}
+                  <span className="font-mono text-[#55687D]">({c.email})</span>
+                </div>
+                {!isSelf ? (
+                  <button
+                    type="button"
+                    disabled={coordBusy}
+                    onClick={() => void handleSetCoordinator(c.email, false)}
+                    className="rounded-md border border-[#CBD5E1] bg-white px-2.5 py-1 text-xs font-medium text-[#3D4F63] hover:border-[#F5C2BE] hover:text-[#B42318] disabled:opacity-50"
+                  >
+                    Revoke
+                  </button>
+                ) : (
+                  <span className="font-mono text-xs font-semibold text-[#003262]">You</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Admin Program Lifecycle & Core Time-Slot Resets */}
       {canManageAdmin && (
         <div className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">

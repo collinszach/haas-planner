@@ -483,13 +483,19 @@ export function App() {
 
   const visibleMatches = matches.filter((m) => m.status !== "cancelled");
   const readyMatches = visibleMatches.filter((m) => m.status === "matched");
+  const isCoordinator = Boolean(profile?.isAdmin);
+  const currentTab: AppTab =
+    activeTab === "coordinator" && !isCoordinator ? "planner" : activeTab;
 
   return (
     <div className="min-h-screen bg-[#F4F6F9] pb-16 text-[#0F1E30]">
       <Navbar
         mode={mode}
-        activeTab={activeTab}
-        onChangeTab={setActiveTab}
+        activeTab={currentTab}
+        onChangeTab={(nextTab) => {
+          if (nextTab === "coordinator" && !isCoordinator) return;
+          setActiveTab(nextTab);
+        }}
         currentProfile={profile}
         demoProfiles={demoProfiles}
         pendingMatchCount={readyMatches.length}
@@ -541,13 +547,13 @@ export function App() {
           />
         ) : (
           <div className="space-y-5">
-            {readyMatches.length > 0 && activeTab !== "swaps" && (
+            {readyMatches.length > 0 && currentTab !== "swaps" && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#B7E4D1] bg-[#E6F5EE] px-4 py-3 text-xs text-[#0F6B4E]">
                 <div className="flex items-center gap-2 font-semibold">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>
                     {readyMatches.length} blind swap {readyMatches.length === 1 ? "match" : "matches"}{" "}
-                    ready. Open Swaps &amp; Queue to copy form details and confirm schedule update.
+                    ready. Open Swaps to copy form details and confirm schedule update.
                   </span>
                 </div>
                 <button
@@ -561,7 +567,7 @@ export function App() {
             )}
 
             {/* Workspace Title + Semester Switcher & Degree Strip */}
-            {activeTab === "planner" && audit && (
+            {currentTab === "planner" && audit && (
               <div className="space-y-5">
                 <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#D8E0EA] pb-4">
                   <div>
@@ -569,22 +575,17 @@ export function App() {
                       {SEMESTER_META.find((s) => s.id === activeSemester)?.label ?? "Semester Planner"}
                     </h1>
                     <p className="mt-0.5 text-xs text-[#55687D]">
-                      Cohort: <strong className="text-[#0F1E30]">{profile.homeCohort}</strong> ·
-                      Valid MBA Units:{" "}
+                      <strong className="text-[#0F1E30]">{profile.homeCohort}</strong> Cohort ·{" "}
                       <strong className="font-mono text-[#003262]">
                         {audit.validMbaUnits}/{audit.mbaUnitTarget}
                       </strong>{" "}
-                      · Non-Haas:{" "}
-                      <strong className="font-mono text-[#0F1E30]">
-                        {audit.nonHaasUnits}/{audit.nonHaasCap}u
-                      </strong>{" "}
-                      · Experiential:{" "}
+                      MBA units · Experiential:{" "}
                       <strong
                         className={
                           audit.experientialSatisfied ? "text-[#0F6B4E]" : "text-[#8A5300]"
                         }
                       >
-                        {audit.experientialSatisfied ? "Satisfied" : "Needed"}
+                        {audit.experientialSatisfied ? "1/1 Satisfied" : "0/1 Needed"}
                       </strong>
                     </p>
                   </div>
@@ -666,7 +667,7 @@ export function App() {
               </div>
             )}
 
-            {activeTab === "swaps" && (
+            {currentTab === "swaps" && (
               <div className="space-y-5">
                 <div className="border-b border-[#D8E0EA] pb-3">
                   <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
@@ -716,7 +717,7 @@ export function App() {
               </div>
             )}
 
-            {activeTab === "audit" && (
+            {currentTab === "audit" && (
               <div className="space-y-5">
                 <div className="border-b border-[#D8E0EA] pb-3">
                   <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
@@ -739,7 +740,7 @@ export function App() {
               </div>
             )}
 
-            {activeTab === "coordinator" && (
+            {currentTab === "coordinator" && isCoordinator && (
               <div className="space-y-5">
                 <div className="border-b border-[#D8E0EA] pb-3">
                   <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">

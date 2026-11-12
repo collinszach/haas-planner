@@ -65,7 +65,7 @@ export function Navbar({
   onSignOut,
 }: NavbarProps) {
   const windowBadge = getWindowBadge();
-  const canSeeCoordinator = mode === "sandbox" || Boolean(currentProfile?.isAdmin);
+  const canSeeCoordinator = Boolean(currentProfile?.isAdmin);
 
   const swapBadgeCount = pendingMatchCount > 0 ? pendingMatchCount : autoSwapCount;
 
@@ -94,7 +94,7 @@ export function Navbar({
                 }`}
               >
                 <Calendar className="h-3.5 w-3.5" />
-                4-Semester Planner
+                Planner
               </button>
 
               <button
@@ -107,7 +107,7 @@ export function Navbar({
                 }`}
               >
                 <ArrowRightLeft className="h-3.5 w-3.5" />
-                Swaps &amp; Queue
+                Swaps
                 {swapBadgeCount > 0 && (
                   <span
                     className={`rounded-full px-1.5 py-0.5 font-mono text-xs font-bold leading-none ${

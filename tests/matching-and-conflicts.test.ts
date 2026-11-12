@@ -811,4 +811,24 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(pricing?.olrAvailable).toBe(0);
     expect(pricing?.olrCapacity).toBe(74);
   });
+
+  it("requires 1 Experiential Learning course for graduation and restricts Coordinator flag to designated admins", () => {
+    const elCourse = SPRING_2027_COURSES.find((c) => c.experiential);
+    expect(elCourse).toBeDefined();
+
+    const beforeEl = computeDegreeAudit(makeProfile({ plannedCourses: [] }));
+    expect(beforeEl.experientialCount).toBe(0);
+    expect(beforeEl.experientialSatisfied).toBe(false);
+
+    const afterEl = computeDegreeAudit(
+      makeProfile({
+        plannedCourses: elCourse ? [catalogCourseToPlannedRecord(elCourse, "Y2_Fall")] : [],
+      }),
+    );
+    expect(afterEl.experientialCount).toBe(1);
+    expect(afterEl.experientialSatisfied).toBe(true);
+
+    const demoAdmins = Object.values(DEMO_PROFILES).filter((p) => p.isAdmin);
+    expect(demoAdmins.map((p) => p.id)).toEqual(["demo-maya"]);
+  });
 });

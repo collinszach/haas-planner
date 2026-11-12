@@ -962,3 +962,75 @@ export async function adminResetCoreSections(
   });
   if (error) throw error;
 }
+
+export interface CoordinatorSummary {
+  id: string;
+  fullName: string;
+  email: string;
+  homeCohort: string;
+}
+
+export async function listCoordinators(
+  mode: "live" | "sandbox",
+): Promise<CoordinatorSummary[]> {
+  if (mode === "sandbox" || !supabase) {
+    const box = loadSandbox();
+    return Object.values(box.state.profiles)
+      .filter((p) => p.isAdmin)
+      .map((p) => ({
+        id: p.id,
+        fullName: p.fullName,
+        email: p.email,
+        homeCohort: p.homeCohort,
+      }))
+      .sort((a, b) => a.email.localeCompare(b.email));
+  }
+
+  const { data, error } = await supabase.rpc("list_coordinators");
+  if (error) throw error;
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: String(row.id),
+    fullName: String(row.full_name ?? ""),
+    email: String(row.email ?? ""),
+    homeCohort: String(row.home_cohort ?? ""),
+  }));
+}
+
+export async function setCoordinatorRole(
+  mode: "live" | "sandbox",
+  email: string,
+  isAdmin: boolean,
+): Promise<void> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail.endsWith("@berkeley.edu")) {
+    throw new Error("Please enter a valid @berkeley.edu email address.");
+  }
+
+  if (mode === "sandbox" || !supabase) {
+    const box = loadSandbox();
+    const target = Object.values(box.state.profiles).find(
+      (p) => p.email.toLowerCase() === cleanEmail,
+    );
+    if (!target) {
+      throw new Error(`No profile found for ${cleanEmail}.`);
+    }
+    if (!isAdmin) {
+      const adminCount = Object.values(box.state.profiles).filter((p) => p.isAdmin).length;
+      if (target.isAdmin && adminCount <= 1) {
+        throw new Error("At least one designated coordinator must remain active.");
+      }
+      if (target.id === box.activeDemoUserId) {
+        throw new Error("Ask another designated coordinator to remove your coordinator role.");
+      }
+    }
+    box.state.profiles[target.id] = { ...target, isAdmin };
+    saveSandbox(box);
+    return;
+  }
+
+  const { error } = await supabase.rpc("set_coordinator_role", {
+    p_email: cleanEmail,
+    p_is_admin: isAdmin,
+  });
+  if (error) throw error;
+}

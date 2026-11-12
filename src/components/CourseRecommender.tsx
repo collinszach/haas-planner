@@ -41,6 +41,7 @@ interface CourseRecommenderProps {
 
 type RecommenderTab = "fits" | "swap_unlocks" | "olr932" | "all" | "berkeley";
 type SortOption = "score" | "worth" | "instructor" | "ease" | "bid";
+type CategoryFilter = "ALL" | "EL" | "BT" | CertificateCode;
 
 const BID_RANK: Record<string, number> = {
   low: 0,
@@ -49,11 +50,11 @@ const BID_RANK: Record<string, number> = {
   high: 3,
 };
 
-const BID_BADGE: Record<string, { label: string; style: string }> = {
-  low: { label: "Low Bid Risk", style: "bg-[#E6F5EE] text-[#0F6B4E] border-[#B7E4D1]" },
-  moderate: { label: "Mod Bid Risk", style: "bg-[#FEF5DC] text-[#8A5300] border-[#F3D58A]" },
-  high: { label: "High Bid-Out Risk", style: "bg-[#FEECEB] text-[#B42318] border-[#F5C2BE]" },
-  application: { label: "App Required", style: "bg-[#E8EFF7] text-[#003262] border-[#B8CBE0]" },
+const BID_TEXT: Record<string, { label: string; color: string }> = {
+  low: { label: "Low Bid Risk", color: "text-[#0F6B4E]" },
+  moderate: { label: "Mod Bid Risk", color: "text-[#8A5300]" },
+  high: { label: "High Bid Risk", color: "text-[#B42318]" },
+  application: { label: "App Required", color: "text-[#003262]" },
 };
 
 export function CourseRecommender({
@@ -68,9 +69,7 @@ export function CourseRecommender({
   const [tab, setTab] = useState<RecommenderTab>("fits");
   const [sortBy, setSortBy] = useState<SortOption>("score");
   const [query, setQuery] = useState("");
-  const [certFilter, setCertFilter] = useState<CertificateCode | "ALL">("ALL");
-  const [onlyExperiential, setOnlyExperiential] = useState(false);
-  const [onlyBusTech, setOnlyBusTech] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
 
   // Berkeleytime Cross-Campus Search state
   const [btQuery, setBtQuery] = useState("INFO");
@@ -161,9 +160,16 @@ export function CourseRecommender({
       if (tab === "olr932" && rec.course.olrRoundId !== OLR_SPRING_2027_RULES.roundId) {
         return false;
       }
-      if (certFilter !== "ALL" && !rec.course.certificates.includes(certFilter)) return false;
-      if (onlyExperiential && !rec.course.experiential) return false;
-      if (onlyBusTech && !rec.course.businessTech) return false;
+      if (categoryFilter === "EL" && !rec.course.experiential) return false;
+      if (categoryFilter === "BT" && !rec.course.businessTech) return false;
+      if (
+        categoryFilter !== "ALL" &&
+        categoryFilter !== "EL" &&
+        categoryFilter !== "BT" &&
+        !rec.course.certificates.includes(categoryFilter)
+      ) {
+        return false;
+      }
       if (q) {
         const hay =
           `${rec.course.code} ${rec.course.name} ${rec.course.instructors} ${rec.course.primaryFunction ?? ""} ${rec.course.primaryIndustry ?? ""}`.toLowerCase();
@@ -193,7 +199,7 @@ export function CourseRecommender({
       }
       return b.score - a.score;
     });
-  }, [allRecommendations, tab, query, certFilter, onlyExperiential, onlyBusTech, sortBy]);
+  }, [allRecommendations, tab, query, categoryFilter, sortBy]);
 
   const handleToggleHaasCourse = async (rec: CourseRecommendation) => {
     const existing = plannedByCourseId.get(rec.course.id);
@@ -249,17 +255,12 @@ export function CourseRecommender({
     <section className="flex flex-col rounded-xl border border-[#D8E0EA] bg-white">
       <div className="border-b border-[#D8E0EA] p-4 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="font-display text-xl font-bold text-[#003262]">
-              Course Recommendations &amp; Catalog
-            </h2>
-            <p className="text-xs text-[#55687D]">
-              Ranked by 30-min timetable fit, Haas ratings, workload, bid risk &amp; degree
-              requirements.
-            </p>
-          </div>
-          <span className="rounded-md bg-[#F8FAFC] px-2.5 py-1 font-mono text-xs font-semibold text-[#0F1E30]">
-            {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA u · {audit.nonHaasUnits}/{audit.nonHaasCap} Non-Haas
+          <h2 className="font-display text-xl font-bold text-[#003262]">
+            Course Catalog &amp; Electives
+          </h2>
+          <span className="font-mono text-xs font-semibold text-[#55687D]">
+            {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA u · {audit.nonHaasUnits}/
+            {audit.nonHaasCap} Non-Haas
           </span>
         </div>
 
@@ -268,7 +269,7 @@ export function CourseRecommender({
           <button
             type="button"
             onClick={() => setTab("fits")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               tab === "fits"
                 ? "bg-[#003262] text-white"
                 : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
@@ -282,7 +283,7 @@ export function CourseRecommender({
               <button
                 type="button"
                 onClick={() => setTab("swap_unlocks")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                   tab === "swap_unlocks"
                     ? "bg-[#003262] text-white"
                     : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
@@ -293,7 +294,7 @@ export function CourseRecommender({
               <button
                 type="button"
                 onClick={() => setTab("olr932")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                   tab === "olr932"
                     ? "bg-[#003262] text-white"
                     : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
@@ -307,13 +308,13 @@ export function CourseRecommender({
           <button
             type="button"
             onClick={() => setTab("all")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               tab === "all"
                 ? "bg-[#003262] text-white"
                 : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
             }`}
           >
-            All Haas ({counts.total})
+            All ({counts.total})
           </button>
 
           <button
@@ -322,13 +323,13 @@ export function CourseRecommender({
               setTab("berkeley");
               if (btResults.length === 0) void handleSearchBerkeley();
             }}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               tab === "berkeley"
                 ? "bg-[#003262] text-white"
                 : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
             }`}
           >
-            UC Berkeley Non-MBA
+            Non-MBA
           </button>
         </div>
 
@@ -350,8 +351,7 @@ export function CourseRecommender({
                 }`}
               >
                 Spring Units: {springBudget.totalUnits}/{OLR_SPRING_2027_RULES.maxSpringUnits}u (
-                {springBudget.coreUnits}u Core + {springBudget.electiveUnits}u Elec · Rem{" "}
-                {springBudget.remainingUnits}u)
+                {springBudget.remainingUnits}u left)
               </span>
             </div>
             <a
@@ -366,40 +366,29 @@ export function CourseRecommender({
           </div>
         )}
 
-        {/* Filters */}
+        {/* Single Clean Filter Row */}
         {tab !== "berkeley" ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[180px] flex-1">
+            <div className="relative min-w-[150px] flex-1">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#55687D]" />
               <input
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search course code, title, prof, industry..."
+                placeholder="Search code, title, prof..."
                 className="w-full rounded-lg border border-[#CBD5E1] py-1.5 pl-8 pr-3 text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
               />
             </div>
 
             <select
-              aria-label="Sort recommended courses"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              aria-label="Filter courses by requirement"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
               className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30] outline-none focus:border-[#003262]"
             >
-              <option value="score">Sort: Best Fit</option>
-              <option value="worth">Sort: Course Worth (/7)</option>
-              <option value="instructor">Sort: Instructor (/7)</option>
-              <option value="ease">Sort: Highest Ease / Lightest</option>
-              <option value="bid">Sort: Lowest Bid Risk</option>
-            </select>
-
-            <select
-              aria-label="Filter by certificate"
-              value={certFilter}
-              onChange={(e) => setCertFilter(e.target.value as CertificateCode | "ALL")}
-              className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30] outline-none focus:border-[#003262]"
-            >
-              <option value="ALL">All Certs</option>
+              <option value="ALL">All Types</option>
+              <option value="EL">Experiential (1 req)</option>
+              <option value="BT">Bus &amp; Tech</option>
               {(["BA", "SB", "AI", "RE"] as CertificateCode[]).map((c) => (
                 <option key={c} value={c}>
                   {c} · {CERTIFICATE_LABELS[c]}
@@ -407,25 +396,18 @@ export function CourseRecommender({
               ))}
             </select>
 
-            <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#3D4F63]">
-              <input
-                type="checkbox"
-                checked={onlyExperiential}
-                onChange={(e) => setOnlyExperiential(e.target.checked)}
-                className="rounded border-[#CBD5E1] text-[#003262]"
-              />
-              EL
-            </label>
-
-            <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#3D4F63]">
-              <input
-                type="checkbox"
-                checked={onlyBusTech}
-                onChange={(e) => setOnlyBusTech(e.target.checked)}
-                className="rounded border-[#CBD5E1] text-[#003262]"
-              />
-              B&amp;T
-            </label>
+            <select
+              aria-label="Sort recommended courses"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30] outline-none focus:border-[#003262]"
+            >
+              <option value="score">Best Fit</option>
+              <option value="worth">Highest Worth</option>
+              <option value="instructor">Top Instructor</option>
+              <option value="ease">Lightest Load</option>
+              <option value="bid">Low Bid Risk</option>
+            </select>
           </div>
         ) : (
           <form onSubmit={(e) => void handleSearchBerkeley(e)} className="mt-3 flex gap-2">
@@ -462,73 +444,55 @@ export function CourseRecommender({
             filtered.slice(0, 60).map((rec) => {
               const { course } = rec;
               const isAdded = plannedByCourseId.has(course.id);
-              const bid = BID_BADGE[course.bidRisk] ?? BID_BADGE.low;
+              const bid = BID_TEXT[course.bidRisk] ?? BID_TEXT.low;
 
               return (
-                <article key={course.id} className="px-4 py-3.5 hover:bg-[#F8FAFC] sm:px-5">
+                <article key={course.id} className="px-4 py-3 hover:bg-[#F8FAFC] sm:px-5">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-mono text-xs font-bold text-[#003262]">
                           {course.code}
                         </span>
                         <h3 className="font-sans text-sm font-semibold text-[#0F1E30]">
                           {course.name}
                         </h3>
-                        <span className="font-mono text-xs font-semibold text-[#3D4F63]">
+                        <span className="font-mono text-xs text-[#55687D]">
                           {course.units}u
                         </span>
                       </div>
 
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#3D4F63]">
-                        <span>
-                          Prof: <strong className="font-medium text-[#0F1E30]">{course.instructors}</strong>
-                        </span>
-                        <span className="font-mono">
-                          {course.dayLabel} {course.timeLabel} · {course.part}
-                        </span>
-                        {course.meetings[0]?.room && (
-                          <span className="font-mono text-[#55687D]">
-                            {course.meetings[0].room}
-                          </span>
-                        )}
+                      <div className="text-xs text-[#3D4F63]">
+                        <strong className="font-medium text-[#0F1E30]">
+                          {course.instructors}
+                        </strong>{" "}
+                        · {course.dayLabel} {course.timeLabel} · {course.part}
+                        {course.meetings[0]?.room ? ` · ${course.meetings[0].room}` : ""}
                       </div>
 
-                      {/* Ratings, Ease & Workload, Bid Risk, OLR Seats */}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                        <span className="rounded bg-[#F8FAFC] px-2 py-0.5 font-mono text-xs text-[#0F1E30]">
-                          Worth:{" "}
-                          <strong>
-                            {course.evaluation?.courseWorth != null
-                              ? `${course.evaluation.courseWorth}/7`
-                              : "Unrated"}
-                          </strong>
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#55687D]">
+                        {course.evaluation?.courseWorth != null && (
+                          <span>
+                            Worth <strong className="text-[#0F1E30]">{course.evaluation.courseWorth}/7</strong>
+                          </span>
+                        )}
+                        {course.evaluation?.instructorEffectiveness != null && (
+                          <span>
+                            Prof <strong className="text-[#0F1E30]">{course.evaluation.instructorEffectiveness}/7</strong>
+                          </span>
+                        )}
+                        <span>
+                          {rec.easeLabel} ({rec.workloadLabel})
                         </span>
-                        <span className="rounded bg-[#F8FAFC] px-2 py-0.5 font-mono text-xs text-[#0F1E30]">
-                          Instr:{" "}
-                          <strong>
-                            {course.evaluation?.instructorEffectiveness != null
-                              ? `${course.evaluation.instructorEffectiveness}/7`
-                              : "Unrated"}
-                          </strong>
-                        </span>
-                        <span className="rounded bg-[#F8FAFC] px-2 py-0.5 text-xs text-[#3D4F63]">
-                          {rec.easeLabel} · {rec.workloadLabel}
-                          {course.evaluation?.difficulty != null
-                            ? ` (${course.evaluation.difficulty}/7)`
-                            : ""}
-                        </span>
-                        <span className={`rounded border px-2 py-0.5 text-xs font-medium ${bid.style}`}>
-                          {bid.label}
-                        </span>
+                        <span className={`font-medium ${bid.color}`}>{bid.label}</span>
                         {course.olrAvailable != null && course.olrCapacity != null && (
                           <span
-                            className={`rounded px-2 py-0.5 font-mono text-xs font-semibold ${
+                            className={`font-mono font-semibold ${
                               course.olrAvailable === 0
-                                ? "bg-[#FEECEB] text-[#B42318]"
+                                ? "text-[#B42318]"
                                 : course.olrAvailable <= 10
-                                  ? "bg-[#FEF5DC] text-[#8A5300]"
-                                  : "bg-[#E6F5EE] text-[#0F6B4E]"
+                                  ? "text-[#8A5300]"
+                                  : "text-[#0F6B4E]"
                             }`}
                           >
                             {course.olrAvailable === 0
@@ -536,55 +500,39 @@ export function CourseRecommender({
                               : `Seats: ${course.olrAvailable}/${course.olrCapacity}`}
                           </span>
                         )}
-                      </div>
-
-                      {/* What it fills + fit diagnostics + OLR Evals */}
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        {rec.fitStatus === "fits" ? (
-                          <span className="rounded bg-[#E6F5EE] px-2 py-0.5 text-xs font-semibold text-[#0F6B4E]">
-                            Fits 30m Grid
-                          </span>
-                        ) : rec.fitStatus === "swap_unlocks" ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-[#FEF5DC] px-2 py-0.5 text-xs font-semibold text-[#8A5300]">
-                            <ArrowRightLeft className="h-3 w-3" />
-                            Auto-Swap Unlock ({rec.requiredSwaps.map((s) => s.course).join(" + ")})
-                          </span>
-                        ) : (
-                          <span className="rounded bg-[#FEECEB] px-2 py-0.5 text-xs font-semibold text-[#B42318]">
-                            {rec.conflictReasons[0] ?? "Time Conflict"}
-                          </span>
-                        )}
-
-                        {rec.fills.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded border border-[#D8E0EA] bg-white px-2 py-0.5 text-xs text-[#3D4F63]"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-
                         {course.courseEvalUrl && (
                           <a
                             href={course.courseEvalUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium text-[#003262] hover:underline"
+                            className="inline-flex items-center gap-0.5 font-medium text-[#003262] hover:underline"
                           >
-                            Course Evals
+                            Evals
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
-                        {course.facultyEvalUrl && (
-                          <a
-                            href={course.facultyEvalUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium text-[#003262] hover:underline"
-                          >
-                            Faculty Evals
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                        {rec.fitStatus === "fits" ? (
+                          <span className="rounded bg-[#E6F5EE] px-2 py-1 text-xs font-semibold text-[#0F6B4E]">
+                            Fits Grid
+                          </span>
+                        ) : rec.fitStatus === "swap_unlocks" ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-[#FEF5DC] px-2 py-1 text-xs font-semibold text-[#8A5300]">
+                            <ArrowRightLeft className="h-3 w-3" />
+                            Swap {rec.requiredSwaps.map((s) => s.course).join("+")}
+                          </span>
+                        ) : (
+                          <span className="rounded bg-[#FEECEB] px-2 py-1 text-xs font-semibold text-[#B42318]">
+                            {rec.conflictReasons[0] ?? "Time Conflict"}
+                          </span>
+                        )}
+
+                        {rec.fills.length > 0 && (
+                          <span className="text-xs text-[#55687D]">
+                            {rec.fills.join(" · ")}
+                          </span>
                         )}
                       </div>
                     </div>

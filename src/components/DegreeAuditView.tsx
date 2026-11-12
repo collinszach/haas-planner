@@ -133,10 +133,10 @@ export function DegreeAuditView({
                 audit.experientialSatisfied ? "text-[#0F6B4E]" : "text-[#8A5300]"
               }`}
             >
-              {audit.experientialSatisfied ? "Satisfied" : "Needed (1)"}
+              {audit.experientialSatisfied ? "1/1 Satisfied" : "0/1 Needed"}
             </div>
             <div className="mt-0.5 text-xs text-[#3D4F63]">
-              {audit.experientialCount} planned course(s)
+              1 Applied Innovation / EL course req. ({audit.experientialCount} planned)
             </div>
           </div>
 
