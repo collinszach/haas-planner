@@ -9,7 +9,7 @@ import type {
   SwapMatch,
   SwapRequest,
 } from "@/types/swap";
-import { ArrowRightLeft, CheckCircle2, Clock, Sparkles, Trash2, Users } from "lucide-react";
+import { ArrowRightLeft, CheckCircle2, Clock, Sparkles, Users } from "lucide-react";
 
 interface AutoSwapTrayProps {
   profile: StudentProfile;
@@ -364,75 +364,59 @@ export function AutoSwapTray({
       )}
 
       {activeWaitingRequests.length > 0 && (
-        <section className="bg-[#FAFAFC] px-4 py-2.5 sm:px-5">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-[#0284C7]" />
-              <h2 className="text-[13px] font-semibold text-[#1D1D1F]">
-                Waiting for Swap Match ({activeWaitingRequests.length})
-              </h2>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E5EA] bg-[#F0F9FF] px-4 py-2 sm:px-5">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1 font-semibold text-[#0369A1]">
+              <Clock className="h-3 w-3 shrink-0" />
+              Swap Requested:
+            </span>
+            {activeWaitingRequests.map((req) => (
+              <div key={req.id} className="flex flex-wrap items-center gap-1.5 text-xs text-[#1D1D1F]">
+                <span className="font-semibold">{req.course ?? "Core"}</span>
+                <span className="rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-medium text-[#48484A]">
+                  Current: {sectionLookup[req.givingUpKey]?.cohort ?? formatSwapKey(req.givingUpKey)}
+                </span>
+                <span className="text-[#6E6E73]">→</span>
+                <span className="rounded bg-[#0284C7]/10 px-1.5 py-0.5 text-[11px] font-semibold text-[#0369A1]">
+                  Target: {req.wantedKeys.map((k) => sectionLookup[k]?.cohort ?? formatSwapKey(k)).join(" or ")}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
             {onOpenSwapWorkspace && (
               <button
                 type="button"
                 onClick={onOpenSwapWorkspace}
-                className="text-xs font-medium text-[#003262] underline-offset-2 hover:underline"
+                className="text-xs font-medium text-[#003262] hover:underline"
               >
-                Open Swaps Queue
+                View Queue
+              </button>
+            )}
+            {onCancelRequest && activeWaitingRequests[0] && (
+              <button
+                type="button"
+                disabled={withdrawingId === activeWaitingRequests[0].id}
+                onClick={async () => {
+                  setError(null);
+                  const id = activeWaitingRequests[0].id;
+                  setWithdrawingId(id);
+                  try {
+                    await onCancelRequest(id);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Failed to withdraw swap.");
+                  } finally {
+                    setWithdrawingId(null);
+                  }
+                }}
+                className="rounded-[5px] border border-[#D1D1D6] bg-white px-2 py-0.5 text-[11px] font-medium text-[#48484A] hover:bg-[#F5F5F7]"
+              >
+                {withdrawingId === activeWaitingRequests[0].id ? "Withdrawing..." : "Withdraw"}
               </button>
             )}
           </div>
-
-          <div className="mt-2 divide-y divide-[#E5E5EA] border-t border-[#E5E5EA]">
-            {activeWaitingRequests.map((req) => (
-              <div
-                key={req.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-[5px] bg-[#FFFBEB] px-2 py-1 text-xs font-medium text-[#92400E]">
-                    Waiting
-                  </span>
-                  <span className="font-semibold text-[#1D1D1F]">
-                    {req.swapType === "cohort" ? "Whole Cohort" : req.course ?? "Core"}
-                  </span>
-                  <span className="tabular-nums text-[#B42318] line-through">
-                    {sectionLookup[req.givingUpKey]?.displayName ?? formatSwapKey(req.givingUpKey)}
-                  </span>
-                  <span className="text-[#6E6E73]">→</span>
-                  <span className="tabular-nums font-medium text-[#0369A1]">
-                    {req.wantedKeys
-                      .slice(0, 3)
-                      .map((k) => sectionLookup[k]?.displayName ?? formatSwapKey(k))
-                      .join(" OR ")}
-                  </span>
-                </div>
-
-                {onCancelRequest && (
-                  <button
-                    type="button"
-                    disabled={withdrawingId === req.id}
-                    onClick={async () => {
-                      setError(null);
-                      setWithdrawingId(req.id);
-                      try {
-                        await onCancelRequest(req.id);
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : "Failed to withdraw swap.");
-                      } finally {
-                        setWithdrawingId(null);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1 text-xs font-medium text-[#48484A] hover:border-[#F5C2BE] hover:text-[#B42318] disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    {withdrawingId === req.id ? "Withdrawing..." : "Withdraw"}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+        </div>
       )}
 
       {showAutoGenHeader && (

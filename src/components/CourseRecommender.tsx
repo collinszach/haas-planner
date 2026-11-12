@@ -3,7 +3,6 @@ import { CourseCatalogManagerModal } from "@/components/CourseCatalogManagerModa
 import {
   berkeleyClassToCatalogCourse,
   catalogCourseToPlannedRecord,
-  CERTIFICATE_LABELS,
   OLR_SPRING_2027_RULES,
 } from "@/data/catalog";
 import { searchBerkeleyCourses } from "@/lib/berkeleyApi";
@@ -42,8 +41,6 @@ import {
   Plus,
   RotateCcw,
   Search,
-  Trash2,
-  X,
 } from "lucide-react";
 
 interface CourseRecommenderProps {
@@ -479,54 +476,53 @@ export function CourseRecommender({
     <section className="flex flex-col bg-white">
       <div className="border-b border-[#E5E5EA] px-4 py-3 sm:px-5">
         {/* Header & Catalog Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <div>
             <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
               Course Catalog
             </h2>
             <p className="tabular-nums text-xs text-[#6E6E73]">
-              {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA u · {audit.nonHaasUnits}/
-              {audit.nonHaasCap} Non-Haas
+              {counts.total} courses available · {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA units
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {profile.isAdmin ? (
               <button
                 type="button"
                 onClick={() => setShowCatalogModal(true)}
-                aria-label="Manage catalog CSV"
+                title="Manage Catalog CSV"
                 className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 py-1 text-xs font-medium text-[#48484A] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F]"
               >
                 <FileSpreadsheet className="h-3 w-3 text-[#003262]" />
-                <span>Catalog Manager</span>
+                <span className="hidden sm:inline">Catalog</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowCatalogModal(true)}
-                aria-label="Export course catalog to CSV"
+                title="Export Course Catalog CSV"
                 className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 py-1 text-xs font-medium text-[#48484A] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F]"
               >
                 <Download className="h-3 w-3 text-[#003262]" />
-                <span>Export CSV</span>
+                <span className="hidden sm:inline">Export</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Search & Department Selector */}
+        {/* Unified Search & Filters Bar */}
         <div className="mt-2.5 space-y-2">
-          {/* Top Row: Search Input + Department Multi-Select Dropdown */}
-          <div className="flex flex-col gap-1.5 sm:flex-row">
-            <div className="relative flex-1">
+          {/* Top Row: Search Input + Dept Dropdown + Requirement + Sort */}
+          <div className="flex flex-wrap gap-1.5">
+            <div className="relative flex-1 min-w-[160px]">
               <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
               <input
                 type="search"
                 aria-label="Search courses"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search code, title, prof, day, or topic..."
+                placeholder="Search code, title, prof..."
                 className="h-8 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
               />
             </div>
@@ -538,20 +534,17 @@ export function CourseRecommender({
                 onClick={() => setDeptDropdownOpen((prev) => !prev)}
                 aria-expanded={deptDropdownOpen}
                 aria-haspopup="true"
-                className="inline-flex h-8 w-full items-center justify-between gap-1.5 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 text-xs font-medium text-[#1D1D1F] hover:bg-[#F5F5F7] sm:w-auto"
+                className="inline-flex h-8 items-center justify-between gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] hover:bg-[#F5F5F7]"
               >
                 <Building2 className="h-3.5 w-3.5 text-[#003262]" />
                 <span>
-                  Depts:{" "}
-                  <strong className="font-semibold text-[#003262]">
-                    {isOnlyMba ? "MBA Only" : `${selectedDepts.length} selected`}
-                  </strong>
+                  {isOnlyMba ? "MBA" : `${selectedDepts.length} Depts`}
                 </span>
                 <ChevronDown className="h-3 w-3 text-[#6E6E73]" />
               </button>
 
               {deptDropdownOpen && (
-                <div className="absolute left-0 top-full z-40 mt-1 w-72 rounded-[8px] border border-[#D1D1D6] bg-white p-2 shadow-xl">
+                <div className="absolute right-0 sm:left-0 top-full z-40 mt-1 w-72 rounded-[8px] border border-[#D1D1D6] bg-white p-2 shadow-xl">
                   <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-1.5 text-[11px] font-semibold text-[#6E6E73]">
                     <span>Graduate Departments (200+)</span>
                     {!isOnlyMba && (
@@ -617,9 +610,40 @@ export function CourseRecommender({
                 </div>
               )}
             </div>
+
+            {/* Requirement Filter Dropdown */}
+            <select
+              aria-label="Filter courses by requirement"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+              className="h-8 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
+            >
+              <option value="ALL">All Reqs</option>
+              <option value="EL">Experiential</option>
+              <option value="BT">Bus &amp; Tech</option>
+              {(["BA", "SB", "AI", "RE"] as CertificateCode[]).map((c) => (
+                <option key={c} value={c}>
+                  {c} Cert
+                </option>
+              ))}
+            </select>
+
+            {/* Sort Dropdown */}
+            <select
+              aria-label="Sort recommended courses"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="h-8 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
+            >
+              <option value="score">Sort: Best Fit</option>
+              <option value="seats">Sort: Seats</option>
+              <option value="worth">Sort: Rating</option>
+              <option value="instructor">Sort: Prof</option>
+              <option value="ease">Sort: Lightest Work</option>
+            </select>
           </div>
 
-          {/* Schedule Fit Segmented Control */}
+          {/* Row 2: Unified Segmented View Switcher + Muted Status */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="inline-flex rounded-[7px] bg-[#E5E5EA] p-0.5">
               <button
@@ -627,12 +651,26 @@ export function CourseRecommender({
                 onClick={() => setFitView("fits")}
                 className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
                   effectiveFitView === "fits"
-                    ? "bg-white text-[#1D1D1F] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    ? "bg-white text-[#1D1D1F] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
                     : "text-[#48484A] hover:text-[#1D1D1F]"
                 }`}
               >
                 Fits Schedule ({counts.fits})
               </button>
+
+              {!isY2 && semesterId === "Y1_Spring" && counts.swap > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFitView("swap_unlocks")}
+                  className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
+                    effectiveFitView === "swap_unlocks"
+                      ? "bg-white text-[#0369A1] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                      : "text-[#48484A] hover:text-[#1D1D1F]"
+                  }`}
+                >
+                  Swap Unlocks ({counts.swap})
+                </button>
+              )}
 
               <button
                 type="button"
@@ -653,7 +691,7 @@ export function CourseRecommender({
                 onClick={() => setFitView("all")}
                 className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
                   effectiveFitView === "all"
-                    ? "bg-white text-[#1D1D1F] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    ? "bg-white text-[#1D1D1F] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
                     : "text-[#48484A] hover:text-[#1D1D1F]"
                 }`}
               >
@@ -661,116 +699,45 @@ export function CourseRecommender({
               </button>
             </div>
 
-            {!isY2 && semesterId === "Y1_Spring" && (
-              <button
-                type="button"
-                onClick={() => setFitView("swap_unlocks")}
-                className={`rounded-[6px] border px-2 py-1 text-xs font-medium transition ${
-                  effectiveFitView === "swap_unlocks"
-                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
-                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
-                }`}
-              >
-                Swap Unlocks ({counts.swap})
-              </button>
-            )}
-
-            {/* Selected Departments Chips (if non-MBA added) */}
-            {!isOnlyMba && (
-              <div className="flex flex-wrap items-center gap-1">
-                {selectedDepts.map((d) => (
+            <div className="tabular-nums flex items-center gap-2 text-xs text-[#6E6E73]">
+              <span>{filtered.length} shown</span>
+              {semesterId === "Y1_Spring" && (
+                <>
+                  <span>·</span>
                   <span
-                    key={d}
-                    className="inline-flex items-center gap-1 rounded-[4px] bg-[#E0E7FF] px-1.5 py-0.5 text-[11px] font-medium text-[#3730A3]"
+                    className={
+                      springBudget.totalUnits > OLR_SPRING_2027_RULES.maxSpringUnits
+                        ? "font-semibold text-[#B42318]"
+                        : ""
+                    }
                   >
-                    <span>{d}</span>
-                    {selectedDepts.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleToggleDept(d)}
-                        aria-label={`Remove ${d} department`}
-                        className="hover:text-black"
-                      >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    )}
+                    Spring: {springBudget.totalUnits}/{OLR_SPRING_2027_RULES.maxSpringUnits}u
                   </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Structured Dropdowns: Requirement + Sort */}
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            <select
-              aria-label="Filter courses by requirement"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-              className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
-            >
-              <option value="ALL">All Requirements</option>
-              <option value="EL">Experiential (1 req)</option>
-              <option value="BT">Bus &amp; Tech</option>
-              {(["BA", "SB", "AI", "RE"] as CertificateCode[]).map((c) => (
-                <option key={c} value={c}>
-                  {c} · {CERTIFICATE_LABELS[c]}
-                </option>
-              ))}
-            </select>
-
-            <select
-              aria-label="Sort recommended courses"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
-            >
-              <option value="score">Sort: Best Fit</option>
-              <option value="seats">Sort: Available Seats</option>
-              <option value="worth">Sort: Highest Rating</option>
-              <option value="instructor">Sort: Top Instructor</option>
-              <option value="ease">Sort: Lightest Workload</option>
-            </select>
-          </div>
-
-          {/* Summary Strip */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F2F2F7] pt-2 text-xs text-[#6E6E73]">
-            <div className="flex items-center gap-2">
-              <span className="tabular-nums">
-                {filtered.length} {filtered.length === 1 ? "course" : "courses"} shown
-              </span>
+                  <span>·</span>
+                  <a
+                    href={OLR_SPRING_2027_RULES.olrUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-0.5 font-medium text-[#003262] hover:underline"
+                  >
+                    OLR
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </>
+              )}
               {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="font-medium text-[#003262] hover:underline"
-                >
-                  Reset filters
-                </button>
+                <>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="font-medium text-[#003262] hover:underline"
+                  >
+                    Reset
+                  </button>
+                </>
               )}
             </div>
-
-            {semesterId === "Y1_Spring" && (
-              <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span
-                  className={
-                    springBudget.overUnitCap
-                      ? "font-semibold text-[#B42318]"
-                      : "font-medium text-[#1D1D1F]"
-                  }
-                >
-                  Spring Units: {springBudget.totalUnits}/{OLR_SPRING_2027_RULES.maxSpringUnits}u
-                </span>
-                <a
-                  href={OLR_SPRING_2027_RULES.olrUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-[#003262] hover:underline"
-                >
-                  Haas OLR
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -882,10 +849,13 @@ export function CourseRecommender({
             const isCampus = course.dataSource === "berkeley";
 
             return (
-              <article key={course.id} className="px-4 py-3 transition hover:bg-[#FAFAFC] sm:px-5">
-                <div className="flex flex-wrap items-start justify-between gap-2.5">
+              <article
+                key={course.id}
+                className="group border-b border-[#F2F2F7] px-4 py-3 transition hover:bg-[#F9FAFB] sm:px-5"
+              >
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
-                    {/* Title Row */}
+                    {/* Line 1: Code, Title, Units, Badges */}
                     <div className="flex flex-wrap items-baseline gap-1.5">
                       <span
                         className={`tabular-nums text-xs font-semibold ${
@@ -900,8 +870,9 @@ export function CourseRecommender({
                       <span className="tabular-nums text-xs text-[#6E6E73]">
                         · {course.units}u
                       </span>
+
                       {rec.plannedSemesterId && (
-                        <span className="rounded-[4px] bg-[#F2F2F7] px-1.5 py-0.5 text-[11px] font-medium text-[#48484A]">
+                        <span className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[10.5px] font-medium text-[#48484A]">
                           {rec.plannedSemesterId === "Y1_Fall"
                             ? "Y1 Fall"
                             : rec.plannedSemesterId === "Y1_Spring"
@@ -911,20 +882,32 @@ export function CourseRecommender({
                                 : "Y2 Spring"}
                         </span>
                       )}
+
+                      {rec.fitStatus === "swap_unlocks" && (
+                        <span className="inline-flex items-center gap-1 rounded bg-[#E0F2FE] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#0369A1]">
+                          <ArrowRightLeft className="h-2.5 w-2.5 shrink-0" />
+                          Swap Unlocks
+                        </span>
+                      )}
+
+                      {rec.fitStatus === "conflict" && effectiveFitView === "all" && (
+                        <span className="inline-flex items-center gap-1 rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10.5px] font-medium text-[#8A5300]">
+                          Conflict
+                        </span>
+                      )}
                     </div>
 
-                    {/* Metadata Row: Instructor, Times, Room */}
-                    <div className="tabular-nums text-xs text-[#6E6E73]">
-                      <span className="font-medium text-[#1D1D1F]">
-                        {course.instructors || "Haas Faculty"}
-                      </span>{" "}
-                      · {course.dayLabel} {course.timeLabel} · {course.part}
-                      {course.meetings[0]?.room ? ` · ${course.meetings[0].room}` : ""}
+                    {/* Line 2: Schedule · Location · Faculty */}
+                    <div className="tabular-nums truncate text-xs text-[#6E6E73]">
+                      <span>
+                        {course.dayLabel} {course.timeLabel} · {course.part}
+                      </span>
+                      {course.meetings[0]?.room && <span> · {course.meetings[0].room}</span>}
+                      <span> · {course.instructors || "Haas Faculty"}</span>
                     </div>
 
-                    {/* Evaluation & Availability Left Row */}
+                    {/* Line 3: Seats · Rating · Requirements · Evals */}
                     <div className="tabular-nums flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#6E6E73]">
-                      {/* Availability left */}
                       {course.olrAvailable != null && (
                         <span
                           className={`font-semibold ${
@@ -936,7 +919,7 @@ export function CourseRecommender({
                           }`}
                         >
                           {course.olrAvailable === 0
-                            ? "0 seats left (Waitlist)"
+                            ? "Waitlist"
                             : course.olrCapacity != null
                               ? `${course.olrAvailable} seats left (${course.olrFilled ?? course.olrCapacity - course.olrAvailable}/${course.olrCapacity})`
                               : `${course.olrAvailable} seats left`}
@@ -944,18 +927,32 @@ export function CourseRecommender({
                       )}
 
                       {course.evaluation?.courseWorth != null && (
-                        <span>
-                          Worth <strong className="font-medium text-[#1D1D1F]">{course.evaluation.courseWorth}/7</strong>
+                        <span className="inline-flex items-center gap-1">
+                          ★ <strong className="font-medium text-[#1D1D1F]">{course.evaluation.courseWorth}</strong>
+                          {course.evaluation.instructorEffectiveness != null && (
+                            <span className="text-[#8E8E93]">(Prof {course.evaluation.instructorEffectiveness})</span>
+                          )}
                         </span>
                       )}
-                      {course.evaluation?.instructorEffectiveness != null && (
-                        <span>
-                          Prof <strong className="font-medium text-[#1D1D1F]">{course.evaluation.instructorEffectiveness}/7</strong>
+
+                      {course.experiential && (
+                        <span className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[10.5px] font-medium text-[#48484A]">
+                          Experiential
                         </span>
                       )}
-                      <span>
-                        {rec.easeLabel} ({rec.workloadLabel})
-                      </span>
+                      {course.businessTech && (
+                        <span className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[10.5px] font-medium text-[#48484A]">
+                          Bus &amp; Tech
+                        </span>
+                      )}
+                      {course.certificates.map((cert) => (
+                        <span
+                          key={cert}
+                          className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[10.5px] font-medium text-[#48484A]"
+                        >
+                          {cert}
+                        </span>
+                      ))}
 
                       {course.courseEvalUrl && (
                         <a
@@ -970,53 +967,15 @@ export function CourseRecommender({
                       )}
                     </div>
 
-                    {/* Schedule Fit & Requirement Chips */}
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                      {rec.fitStatus === "fits" ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-semibold text-[#0F6B4E]">
-                          <Check className="h-3 w-3 shrink-0" />
-                          Fits Schedule
-                        </span>
-                      ) : rec.fitStatus === "swap_unlocks" ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-[#E0F2FE] px-2 py-0.5 text-[11px] font-semibold text-[#0369A1]">
-                          <ArrowRightLeft className="h-3 w-3 shrink-0" />
-                          Unlocks via Swap
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-semibold text-[#8A5300]">
-                          Schedule Conflict
-                        </span>
-                      )}
-
-                      {course.experiential && (
-                        <span className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[11px] font-medium text-[#48484A]">
-                          Experiential
-                        </span>
-                      )}
-                      {course.businessTech && (
-                        <span className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[11px] font-medium text-[#48484A]">
-                          Bus &amp; Tech
-                        </span>
-                      )}
-                      {course.certificates.map((cert) => (
-                        <span
-                          key={cert}
-                          className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[11px] font-medium text-[#48484A]"
-                        >
-                          {cert}
-                        </span>
-                      ))}
-                    </div>
-
                     {rec.fitStatus === "swap_unlocks" && rec.requiredSwaps.length > 0 && (
                       <div className="text-[11px] text-[#0369A1]">
-                        Swap needed: {rec.requiredSwaps[0]?.reason}
+                        Unlocks if: {rec.requiredSwaps[0]?.reason}
                       </div>
                     )}
                   </div>
 
                   {/* Single Clean Add / Remove Action */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center">
                     <button
                       type="button"
                       disabled={busyId === course.id || rec.isCorePlanned}
@@ -1025,8 +984,8 @@ export function CourseRecommender({
                         rec.isCorePlanned
                           ? "cursor-not-allowed border border-[#D1D1D6] bg-[#F2F2F7] text-[#6E6E73]"
                           : isAdded
-                            ? "border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B] hover:bg-[#FEE2E2]"
-                            : "border border-[#D1D1D6] bg-white text-[#1D1D1F] hover:border-[#003262] hover:bg-[#003262] hover:text-white"
+                            ? "border border-[#D1D1D6] bg-[#F2F2F7] text-[#1D1D1F] hover:border-[#FECACA] hover:bg-[#FEF2F2] hover:text-[#991B1B]"
+                            : "border border-[#003262] bg-white text-[#003262] hover:bg-[#003262] hover:text-white"
                       }`}
                     >
                       {rec.isCorePlanned ? (
@@ -1036,8 +995,8 @@ export function CourseRecommender({
                         </>
                       ) : isAdded ? (
                         <>
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Remove
+                          <Check className="h-3.5 w-3.5 text-[#0F6B4E]" />
+                          Added
                         </>
                       ) : (
                         <>

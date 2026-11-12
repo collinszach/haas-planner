@@ -625,27 +625,8 @@ export function App() {
                   </div>
 
                   <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs text-[#6E6E73]">
-                    <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#003262]/10 px-2.5 py-1 text-xs font-semibold text-[#003262]">
-                      {profile.classYear ?? "1Y"} · Class of {profile.graduationYear ?? 2028}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setEditingProfile(true)}
-                      className="text-xs font-medium text-[#003262] hover:underline"
-                    >
-                      Edit in Profile
-                    </button>
-                    {!isY2 && (
-                      <>
-                        <span>·</span>
-                        <span>
-                          <strong className="font-medium text-[#1D1D1F]">{profile.homeCohort}</strong> Cohort
-                        </span>
-                      </>
-                    )}
-                    <span>·</span>
                     <span>
-                      MBA{" "}
+                      MBA Progress:{" "}
                       <strong className="font-medium text-[#1D1D1F]">
                         {audit.validMbaUnits}/{audit.mbaUnitTarget}u
                       </strong>
@@ -661,6 +642,14 @@ export function App() {
                         {audit.experientialSatisfied ? "1/1 Satisfied" : "0/1 Needed"}
                       </strong>
                     </span>
+                    <span>·</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProfile(true)}
+                      className="font-medium text-[#003262] hover:underline"
+                    >
+                      Profile
+                    </button>
                   </div>
                 </div>
 

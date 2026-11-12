@@ -627,11 +627,27 @@ export function HalfHourGrid({
         if (paintMode) void finishPaint();
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E5EA] px-4 py-3 sm:px-5">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E5EA] px-4 py-2.5 sm:px-5">
+        <div className="flex items-center gap-3">
           <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
             Weekly Timetable
           </h2>
+          <div className="hidden sm:flex items-center gap-2.5 text-[11px] text-[#6E6E73]">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-[#003262]" />
+              Core
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-[#0F6B4E]" />
+              Elective
+            </span>
+            {hasWaitingSwaps && (
+              <span className="inline-flex items-center gap-1 text-[#0284C7]">
+                <span className="h-2 w-2 rounded-full border border-dashed border-[#0284C7] bg-[#F0F9FF]" />
+                Swap Target
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -677,48 +693,10 @@ export function HalfHourGrid({
               className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1 text-xs font-medium text-[#48484A] hover:bg-[#F5F5F7]"
             >
               <Eraser className="h-3.5 w-3.5" />
-              Clear {activePart} ({activeTermBlockedTokens.length})
+              Clear ({activeTermBlockedTokens.length})
             </button>
           )}
         </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 border-b border-[#E5E5EA] bg-[#FAFAFC] px-4 py-2 text-xs text-[#48484A] sm:px-5">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-[2px] border border-[#B8CBE0] bg-[#F0F5FA]" />
-          Haas Core
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-[2px] border border-[#A7F3D0] bg-[#ECFDF5]" />
-          Haas Elective
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-[2px] border border-[#DDD6FE] bg-[#F5F3FF]" />
-          Non-MBA
-        </span>
-        {supportsBlockedOverlay && (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-[2px] border border-[#F3D58A] bg-[#FFFBEB]" />
-            Blocked 30m
-          </span>
-        )}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-[2px] border border-[#FECACA] bg-[#FEF2F2]" />
-          Conflict
-        </span>
-        {hasWaitingSwaps && (
-          <>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-[2px] border border-dashed border-[#D97706] bg-[#FFFBEB]" />
-              Swapping Out
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-[2px] border border-dashed border-[#0284C7] bg-[#F0F9FF]" />
-              Swap Target (#1 Choice)
-            </span>
-          </>
-        )}
       </div>
 
       {/* 30-Minute Calendar Matrix */}
@@ -840,7 +818,6 @@ export function HalfHourGrid({
                       const isNarrow = widthPct <= 60;
                       const isVeryShort = b.rowSpan === 1; // 30m (~30px)
                       const isShort = b.rowSpan === 2; // 60m (~64px)
-                      const isTall = b.rowSpan >= 4; // 2h–3h+ (~132px–200px)
 
                       return (
                         <div
@@ -852,8 +829,8 @@ export function HalfHourGrid({
                             width: `calc(${widthPct}% - 4px)`,
                           }}
                           onClick={() => setSelectedBlock(b)}
-                          className={`pointer-events-auto absolute z-10 flex flex-col justify-start overflow-hidden rounded-[6px] border text-left cursor-pointer transition-all hover:z-30 hover:shadow-md ${
-                            isNarrow ? "p-1.5 gap-0.5" : "p-2 gap-1"
+                          className={`group pointer-events-auto absolute z-10 flex flex-col justify-start overflow-hidden rounded-[6px] border text-left cursor-pointer transition-all hover:z-30 hover:shadow-md ${
+                            isNarrow ? "p-1.5 gap-0.5" : "px-2 py-1.5 gap-0.5"
                           } ${blockStyle(b)}`}
                           title={`${b.code}: ${b.title}\n📍 Location: ${b.room}\n🕒 Time: ${b.timeString}\n👤 Instructor: ${b.instructor || "Haas Faculty"}${b.units ? `\n🎓 Units: ${b.units}` : ""}${b.format ? `\n📅 Format: ${b.format}` : ""}${b.evaluation ? `\n⭐ Worth: ${b.evaluation.courseWorth?.toFixed(1)}/7 · Difficulty: ${b.evaluation.difficulty?.toFixed(1)}/7` : ""}`}
                         >
@@ -887,7 +864,7 @@ export function HalfHourGrid({
                                   void onRemoveCourse(b.removableInstanceId!);
                                 }}
                                 aria-label={`Remove ${b.code} from plan`}
-                                className="shrink-0 rounded p-0.5 text-current/60 hover:bg-black/10 hover:text-current transition"
+                                className="shrink-0 rounded p-0.5 text-current/50 opacity-0 group-hover:opacity-100 hover:bg-black/10 hover:text-current transition focus:opacity-100"
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -905,50 +882,15 @@ export function HalfHourGrid({
                             </div>
                           )}
 
-                          {/* Location & Time: compact single line if short or narrow, stacked if medium or tall */}
-                          {!isVeryShort && (isShort || isNarrow) && (
-                            <div className="flex items-center gap-1 text-[10.5px] font-medium leading-none text-current opacity-90 truncate">
-                              <MapPin className="h-2.5 w-2.5 shrink-0 text-current/80" />
+                          {/* Location & Time: compact single line */}
+                          {!isVeryShort && (
+                            <div className="flex items-center gap-1 text-[10.5px] font-medium leading-none text-current opacity-85 truncate">
+                              <MapPin className="h-2.5 w-2.5 shrink-0 text-current/70" />
                               <span className="truncate">{b.room}</span>
                               <span className="opacity-40">·</span>
                               <span className="font-mono tabular-nums whitespace-nowrap shrink-0">
-                                {formatTimeRangeCompact(b.startMin, b.endMin, true)}
+                                {b.timeString}
                               </span>
-                            </div>
-                          )}
-
-                          {!isVeryShort && !isShort && !isNarrow && (
-                            <div className="flex flex-col gap-0.5 text-[10.5px] leading-tight text-current opacity-90">
-                              {b.room && (
-                                <div className="flex items-center gap-1 font-medium truncate">
-                                  <MapPin className="h-2.5 w-2.5 shrink-0 text-current/80" />
-                                  <span className="truncate">{b.room}</span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-1 font-mono tabular-nums whitespace-nowrap">
-                                <Clock className="h-2.5 w-2.5 shrink-0 text-current/70" />
-                                <span className="whitespace-nowrap">{b.timeString}</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Extra info for tall blocks (Instructor & Evaluation) */}
-                          {isTall && !isNarrow && (
-                            <div className="flex flex-col gap-0.5 pt-0.5 text-[10.5px] leading-tight text-current opacity-85">
-                              {b.instructor && (
-                                <div className="truncate font-sans">
-                                  <span className="opacity-60">Prof:</span> {b.instructor}
-                                </div>
-                              )}
-                              {b.evaluation && (
-                                <div className="flex items-center gap-1 font-medium whitespace-nowrap">
-                                  <Star className="h-2.5 w-2.5 shrink-0 fill-amber-400 text-amber-500" />
-                                  <span>
-                                    Worth {b.evaluation.courseWorth?.toFixed(1)}/7 · Diff{" "}
-                                    {b.evaluation.difficulty?.toFixed(1)}/7
-                                  </span>
-                                </div>
-                              )}
                             </div>
                           )}
 
