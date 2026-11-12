@@ -155,6 +155,8 @@ export interface DegreeAuditReport {
   coreCompletedCount: number;
   coreRequiredCount: number;
   coreUnits: number;
+  completedCoreUnits: number;
+  coreSatisfied: boolean;
   validMbaUnits: number;
   mbaUnitTarget: number;
   totalProgramUnits: number;

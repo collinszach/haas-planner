@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CourseCatalogManagerModal } from "@/components/CourseCatalogManagerModal";
 import { SECTIONS } from "@/data/sections";
 import {
   listCoordinators,
@@ -23,6 +24,7 @@ import {
   CalendarClock,
   Eraser,
   FileSearch,
+  FileSpreadsheet,
   RefreshCw,
   RotateCcw,
   Save,
@@ -173,6 +175,7 @@ export function CoordinatorPanel({
   const activeSections =
     liveSections && liveSections.length > 0 ? liveSections : SECTIONS;
   const canManageAdmin = Boolean(profile?.isAdmin);
+  const [showCatalogModal, setShowCatalogModal] = useState(false);
 
   // Designated Coordinator Roster State
   const [coordinators, setCoordinators] = useState<CoordinatorSummary[]>([]);
@@ -950,6 +953,26 @@ export function CoordinatorPanel({
         )}
       </div>
 
+      {/* Course Catalog Manager (CSV Pull & Upload) */}
+      <div className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-bold text-[#003262]">
+              <FileSpreadsheet className="h-4 w-4 text-[#FDB515]" />
+              Course Catalog Manager (CSV Pull &amp; Upload)
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCatalogModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#003262] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#002347]"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            Open Course Manager
+          </button>
+        </div>
+      </div>
+
       {/* Reference Schedule Table (Dynamic) */}
       <div className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
         <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-[#003262]">
@@ -994,6 +1017,10 @@ export function CoordinatorPanel({
           </table>
         </div>
       </div>
+      <CourseCatalogManagerModal
+        isOpen={showCatalogModal}
+        onClose={() => setShowCatalogModal(false)}
+      />
     </div>
   );
 }

@@ -54,6 +54,9 @@ export function ProfileSetup({
   const [homeCohort, setHomeCohort] = useState<CohortName>(
     initialProfile?.homeCohort ?? "Blue",
   );
+  const [classYear, setClassYear] = useState<"Y1" | "Y2">(
+    initialProfile?.classYear ?? "Y1",
+  );
   const [degreeTrack, setDegreeTrack] = useState<DegreeTrack>(
     initialProfile?.degreeTrack ?? "FTMBA",
   );
@@ -121,6 +124,7 @@ export function ProfileSetup({
         blockedSlots: initialProfile?.blockedSlots ?? [],
         currentSections,
         confirmedYear: programConfig?.academicYear ?? "2026-2027",
+        classYear,
         isAdmin: initialProfile?.isAdmin,
         createdAt: initialProfile?.createdAt ?? new Date().toISOString(),
         degreeTrack,
@@ -175,7 +179,7 @@ export function ProfileSetup({
       )}
 
       <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <label
               htmlFor="profile-fullname"
@@ -192,6 +196,24 @@ export function ProfileSetup({
               placeholder="First Last"
               className="w-full rounded-[6px] border border-[#D1D1D6] px-3 py-2 text-sm text-[#1D1D1F] outline-none focus:border-[#003262]"
             />
+          </div>
+
+          <div>
+            <label
+              htmlFor="profile-class-year"
+              className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]"
+            >
+              Class Year
+            </label>
+            <select
+              id="profile-class-year"
+              value={classYear}
+              onChange={(e) => setClassYear(e.target.value as "Y1" | "Y2")}
+              className="w-full rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-2 text-sm text-[#1D1D1F] outline-none focus:border-[#003262]"
+            >
+              <option value="Y1">Year 1 (Y1 · Core &amp; Swaps)</option>
+              <option value="Y2">Year 2 (Y2 · Electives Only)</option>
+            </select>
           </div>
 
           <div>
@@ -216,6 +238,12 @@ export function ProfileSetup({
             </select>
           </div>
         </div>
+
+        {classYear === "Y2" && (
+          <div className="rounded-[8px] border border-[#D1E0F0] bg-[#F0F5FA] p-3 text-xs text-[#003262]">
+            <strong>Year 2 Student:</strong> Core courses are completed. Cohort and core swaps are hidden from your planner so you can focus on electives and degree completion.
+          </div>
+        )}
 
         {degreeTrack === "MBA_MENG" && (
           <div>
@@ -245,36 +273,38 @@ export function ProfileSetup({
           </div>
         )}
 
-        <div>
-          <span className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]">
-            Home Cohort (sets Core schedule baseline)
-          </span>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {COHORTS.map((c) => {
-              const selected = homeCohort === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => handleCohortChange(c)}
-                  className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition ${
-                    selected
-                      ? "border-[#003262] bg-[#E8EFF7]"
-                      : "border-[#E5E5EA] bg-white hover:bg-[#FAFAFC]"
-                  }`}
-                >
-                  <span
-                    className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${COHORT_COLORS[c].dot}`}
-                  />
-                  <div>
-                    <div className="text-sm font-bold text-[#1D1D1F]">{c} Cohort</div>
-                    <div className="text-xs text-[#6E6E73]">{COHORT_SUMMARY[c]}</div>
-                  </div>
-                </button>
-              );
-            })}
+        {classYear === "Y1" && (
+          <div>
+            <span className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]">
+              Home Cohort
+            </span>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {COHORTS.map((c) => {
+                const selected = homeCohort === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => handleCohortChange(c)}
+                    className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition ${
+                      selected
+                        ? "border-[#003262] bg-[#E8EFF7]"
+                        : "border-[#E5E5EA] bg-white hover:bg-[#FAFAFC]"
+                    }`}
+                  >
+                    <span
+                      className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${COHORT_COLORS[c].dot}`}
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-[#1D1D1F]">{c} Cohort</div>
+                      <div className="text-xs text-[#6E6E73]">{COHORT_SUMMARY[c]}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
           <span className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]">
@@ -339,10 +369,11 @@ export function ProfileSetup({
                 />
               </div>
 
-              <div>
-                <div className="mb-2 text-xs font-semibold text-[#1D1D1F]">
-                  Spring 2027 Core Sections &amp; Waived Courses
-                </div>
+              {classYear === "Y1" && (
+                <div>
+                  <div className="mb-2 text-xs font-semibold text-[#1D1D1F]">
+                    Spring 2027 Core Sections &amp; Waived Courses
+                  </div>
                 <div className="divide-y divide-[#E5E5EA] rounded-lg bg-white">
                   {COURSES.map((course) => {
                     const options = SECTIONS.filter((s) => s.course === course);
@@ -386,6 +417,7 @@ export function ProfileSetup({
                   })}
                 </div>
               </div>
+            )}
             </div>
           )}
         </div>

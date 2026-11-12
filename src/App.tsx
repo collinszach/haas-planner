@@ -284,10 +284,34 @@ export function App() {
       avatarUrl: nextProfile.avatarUrl ?? authAvatarUrl ?? null,
     };
     setProfile(enriched);
+    if (
+      enriched.classYear === "Y2" &&
+      (activeSemester === "Y1_Fall" || activeSemester === "Y1_Spring")
+    ) {
+      setActiveSemester("Y2_Spring");
+    }
     await saveStudentProfile(runMode, enriched);
     await loadDashboard(runMode, enriched.id, authAvatarUrl);
     setEditingProfile(false);
     showToast("Profile and planner baseline saved.");
+  };
+
+  const handleSwitchClassYear = async (nextYear: "Y1" | "Y2") => {
+    if (!profile || (profile.classYear ?? "Y1") === nextYear) return;
+    const runMode = mode === "live" ? "live" : "sandbox";
+    const updated: StudentProfile = { ...profile, classYear: nextYear };
+    setProfile(updated);
+    if (nextYear === "Y2" && (activeSemester === "Y1_Fall" || activeSemester === "Y1_Spring")) {
+      setActiveSemester("Y2_Spring");
+    } else if (nextYear === "Y1" && (activeSemester === "Y2_Fall" || activeSemester === "Y2_Spring")) {
+      setActiveSemester("Y1_Spring");
+    }
+    await saveStudentProfile(runMode, updated);
+    showToast(
+      nextYear === "Y2"
+        ? "Switched to Year 2 (Electives Only · Core Swaps hidden)."
+        : "Switched to Year 1 (Core Curriculum & Swaps enabled).",
+    );
   };
 
   const handleSaveBlockedSlots = async (nextSlots: TimeSlotToken[]) => {
@@ -508,8 +532,11 @@ export function App() {
   const visibleMatches = matches.filter((m) => m.status !== "cancelled");
   const readyMatches = visibleMatches.filter((m) => m.status === "matched");
   const isCoordinator = Boolean(profile?.isAdmin);
+  const isY2 = profile?.classYear === "Y2";
   const currentTab: AppTab =
-    activeTab === "coordinator" && !isCoordinator ? "planner" : activeTab;
+    (activeTab === "coordinator" && !isCoordinator) || (activeTab === "swaps" && isY2)
+      ? "planner"
+      : activeTab;
 
   return (
     <div className="min-h-screen bg-[#F5F5F7] pb-10 text-[#1D1D1F]">
@@ -518,6 +545,7 @@ export function App() {
         activeTab={currentTab}
         onChangeTab={(nextTab) => {
           if (nextTab === "coordinator" && !isCoordinator) return;
+          if (nextTab === "swaps" && isY2) return;
           setActiveTab(nextTab);
         }}
         currentProfile={profile}
@@ -571,7 +599,7 @@ export function App() {
           />
         ) : (
           <div className="space-y-4">
-            {readyMatches.length > 0 && currentTab !== "swaps" && (
+            {readyMatches.length > 0 && currentTab !== "swaps" && !isY2 && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#B7E4D1] bg-[#ECFDF5] px-4 py-2.5 text-xs text-[#065F46]">
                 <div className="flex items-center gap-2 font-medium">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0F6B4E]" />
@@ -630,9 +658,42 @@ export function App() {
                   </div>
 
                   <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs text-[#6E6E73]">
-                    <span>
-                      <strong className="font-medium text-[#1D1D1F]">{profile.homeCohort}</strong> Cohort
-                    </span>
+                    <div
+                      role="group"
+                      aria-label="Class Year"
+                      className="inline-flex rounded-[6px] bg-[#E5E5EA]/70 p-0.5 text-xs"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => void handleSwitchClassYear("Y1")}
+                        className={`rounded-[4px] px-2 py-0.5 font-semibold transition ${
+                          !isY2
+                            ? "bg-white text-[#003262] shadow-xs"
+                            : "text-[#48484A] hover:text-[#1D1D1F]"
+                        }`}
+                      >
+                        Y1
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleSwitchClassYear("Y2")}
+                        className={`rounded-[4px] px-2 py-0.5 font-semibold transition ${
+                          isY2
+                            ? "bg-white text-[#003262] shadow-xs"
+                            : "text-[#48484A] hover:text-[#1D1D1F]"
+                        }`}
+                      >
+                        Y2
+                      </button>
+                    </div>
+                    {!isY2 && (
+                      <>
+                        <span>·</span>
+                        <span>
+                          <strong className="font-medium text-[#1D1D1F]">{profile.homeCohort}</strong> Cohort
+                        </span>
+                      </>
+                    )}
                     <span>·</span>
                     <span>
                       MBA{" "}
@@ -657,16 +718,16 @@ export function App() {
                 {/* Flush 2-Column Split Workbench: Left Calendar + Right Course Inspector */}
                 <div className="grid lg:grid-cols-[1.42fr_1fr] lg:divide-x lg:divide-[#E5E5EA]">
                   <div className="flex min-w-0 flex-col">
-                    {(activeSemester === "Y1_Spring" ||
-                      (autoSwapDiag?.legs.length ?? 0) > 0 ||
-                      Boolean(autoSwapDiag?.cohortAlternative) ||
-                      matches.some((m) => m.status === "matched" || m.status === "submitted") ||
-                      requests.some(
-                        (r) =>
-                          r.status === "active" ||
-                          r.status === "matched" ||
-                          r.status === "submitted",
-                      )) && (
+                    {!isY2 &&
+                      (activeSemester === "Y1_Spring" ||
+                        (activeSemester === "Y1_Fall" &&
+                          (matches.some((m) => m.status === "matched" || m.status === "submitted") ||
+                            requests.some(
+                              (r) =>
+                                r.status === "active" ||
+                                r.status === "matched" ||
+                                r.status === "submitted",
+                            )))) && (
                       <AutoSwapTray
                         profile={profile}
                         sections={sections}

@@ -72,6 +72,13 @@ export function buildUnifiedPlanEntries(
     activeSections,
   );
   const electives = (profile.plannedCourses ?? []).filter((c) => !c.isCore);
+
+  if (profile.classYear === "Y2") {
+    const completedFall = fallCores.map((c) => ({ ...c, status: "completed" as const }));
+    const completedSpring = springCores.map((c) => ({ ...c, status: "completed" as const }));
+    return [...completedFall, ...completedSpring, ...electives];
+  }
+
   return [...fallCores, ...springCores, ...electives];
 }
 
@@ -353,6 +360,8 @@ export function computeDegreeAudit(
     coreCompletedCount,
     coreRequiredCount: CORE_TOTAL_COUNT,
     coreUnits,
+    completedCoreUnits,
+    coreSatisfied: profile.classYear === "Y2" || completedCoreUnits >= coreUnits,
     validMbaUnits,
     mbaUnitTarget,
     totalProgramUnits,

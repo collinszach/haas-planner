@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CourseCatalogManagerModal } from "@/components/CourseCatalogManagerModal";
 import {
   berkeleyClassToPlannedRecord,
   catalogCourseToPlannedRecord,
@@ -25,6 +26,7 @@ import {
   ArrowRightLeft,
   Check,
   ExternalLink,
+  FileSpreadsheet,
   Plus,
   Search,
   Trash2,
@@ -87,6 +89,14 @@ export function CourseRecommender({
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("ALL");
   const [openSeatsOnly, setOpenSeatsOnly] = useState(false);
+  const [showCatalogModal, setShowCatalogModal] = useState(false);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+
+  useEffect(() => {
+    const handler = () => setCatalogVersion((v) => v + 1);
+    window.addEventListener("haas_catalog_updated", handler);
+    return () => window.removeEventListener("haas_catalog_updated", handler);
+  }, []);
 
   // Berkeleytime Cross-Campus Search state
   const [btQuery, setBtQuery] = useState("INFO");
@@ -120,11 +130,12 @@ export function CourseRecommender({
         activeSections: sections.length > 0 ? sections : undefined,
         excludeAlreadyPlanned: false,
       }),
-    [semesterId, profile, marketPulse, sections],
+    [semesterId, profile, marketPulse, sections, catalogVersion],
   );
 
+  const isY2 = profile.classYear === "Y2" || semesterId.startsWith("Y2_");
   const effectiveFitView: FitView =
-    semesterId !== "Y1_Spring" && fitView === "swap_unlocks" ? "fits" : fitView;
+    (semesterId !== "Y1_Spring" || isY2) && fitView === "swap_unlocks" ? "fits" : fitView;
 
   const counts = useMemo(() => {
     let fits = 0;
@@ -336,40 +347,52 @@ export function CourseRecommender({
             </p>
           </div>
 
-          <div
-            role="tablist"
-            aria-label="Course catalog source"
-            className="inline-flex rounded-[7px] bg-[#E5E5EA]/70 p-0.5"
-          >
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              role="tab"
-              aria-selected={source === "haas"}
-              onClick={() => setSource("haas")}
-              className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
-                source === "haas"
-                  ? "bg-white text-[#1D1D1F] shadow-sm"
-                  : "text-[#48484A] hover:text-[#1D1D1F]"
-              }`}
+              onClick={() => setShowCatalogModal(true)}
+              aria-label="Pull down or upload course catalog CSV"
+              className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 py-1 text-xs font-medium text-[#48484A] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F]"
             >
-              Haas ({counts.total})
+              <FileSpreadsheet className="h-3 w-3 text-[#003262]" />
+              <span>Pull / Upload CSV</span>
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={source === "berkeley"}
-              onClick={() => {
-                setSource("berkeley");
-                if (btResults.length === 0) void handleSearchBerkeley();
-              }}
-              className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
-                source === "berkeley"
-                  ? "bg-white text-[#1D1D1F] shadow-sm"
-                  : "text-[#48484A] hover:text-[#1D1D1F]"
-              }`}
+
+            <div
+              role="tablist"
+              aria-label="Course catalog source"
+              className="inline-flex rounded-[7px] bg-[#E5E5EA]/70 p-0.5"
             >
-              Non-MBA Campus
-            </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={source === "haas"}
+                onClick={() => setSource("haas")}
+                className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
+                  source === "haas"
+                    ? "bg-white text-[#1D1D1F] shadow-sm"
+                    : "text-[#48484A] hover:text-[#1D1D1F]"
+                }`}
+              >
+                Haas ({counts.total})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={source === "berkeley"}
+                onClick={() => {
+                  setSource("berkeley");
+                  if (btResults.length === 0) void handleSearchBerkeley();
+                }}
+                className={`rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
+                  source === "berkeley"
+                    ? "bg-white text-[#1D1D1F] shadow-sm"
+                    : "text-[#48484A] hover:text-[#1D1D1F]"
+                }`}
+              >
+                Non-MBA Campus
+              </button>
+            </div>
           </div>
         </div>
 
@@ -403,7 +426,7 @@ export function CourseRecommender({
                 >
                   Fits Grid ({counts.fits})
                 </button>
-                {semesterId === "Y1_Spring" && (
+                {!isY2 && semesterId === "Y1_Spring" && (
                   <button
                     type="button"
                     onClick={() => setFitView("swap_unlocks")}
@@ -893,6 +916,11 @@ export function CourseRecommender({
           </div>
         )}
       </div>
+      <CourseCatalogManagerModal
+        isOpen={showCatalogModal}
+        onClose={() => setShowCatalogModal(false)}
+        onCatalogUpdated={() => setCatalogVersion((v) => v + 1)}
+      />
     </section>
   );
 }

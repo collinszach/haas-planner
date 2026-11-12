@@ -5,6 +5,10 @@ import {
   OLR_SPRING_2027_RULES,
   SPRING_2027_COURSES,
 } from "@/data/catalog";
+import {
+  exportCoursesToCsv,
+  parseCoursesFromCsv,
+} from "@/lib/courseCatalogManager";
 import { DEMO_PROFILES } from "@/data/demoSeed";
 import { createMengFixedCourseRecord, MENG_TRACKS } from "@/data/mengRequirements";
 import {
@@ -44,6 +48,7 @@ function makeProfile(overrides: Partial<StudentProfile>): StudentProfile {
     email: overrides.email ?? "test@berkeley.edu",
     studentId: overrides.studentId ?? "3031234567",
     homeCohort: cohort,
+    classYear: overrides.classYear ?? "Y1",
     waivedCourses: overrides.waivedCourses ?? [],
     blockedSlots: overrides.blockedSlots ?? [],
     currentSections:
@@ -939,5 +944,52 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(fintechAudit.mengAudit?.engineeringMajorTargetUnits).toBe(15);
     expect(fintechAudit.programUnitTarget).toBe(62);
     expect(fintechAudit.nonHaasCap).toBe(20);
+  });
+
+  it("marks all 20 Core units completed for Year 2 (Y2) students and distinguishes from Y1", () => {
+    const y1Profile = makeProfile({ classYear: "Y1", plannedCourses: [] });
+    const y1Audit = computeDegreeAudit(y1Profile);
+    expect(y1Audit.completedCoreUnits).toBe(13); // Fall 13 completed, Spring 7 planned
+    expect(y1Audit.coreSatisfied).toBe(false);
+
+    const y2Profile = makeProfile({ classYear: "Y2", plannedCourses: [] });
+    const y2Audit = computeDegreeAudit(y2Profile);
+    expect(y2Audit.completedCoreUnits).toBe(20); // 20 units fulfilled
+    expect(y2Audit.coreSatisfied).toBe(true);
+  });
+
+  it("exports course catalog to CSV and parses uploaded MBA and campus courses without AI", () => {
+    const sampleCsv = exportCoursesToCsv(SPRING_2027_COURSES.slice(0, 3));
+    expect(sampleCsv).toContain("code,name,units,season");
+    expect(sampleCsv).toContain("MBA");
+
+    const uploadedCsv = [
+      "code,name,units,season,termYear,part,instructors,dayLabel,timeLabel,format,experiential,businessTech,certificates,bidRisk,dataSource,olrAvailable,olrCapacity",
+      "MBA294.99,Custom AI Venture Studio,3,Spring,2027,Full,Prof Innovation,Mon/Wed,9:00 AM-11:00 AM,In-Person,true,true,AI,low,haas,25,60",
+      "COMPSCI 294,Special Topics in AI Systems,4,Spring,2027,Full,Faculty CS,Tue/Thu,2:00 PM-4:00 PM,In-Person,false,true,,moderate,berkeley,10,35",
+    ].join("\n");
+
+    const parsed = parseCoursesFromCsv(uploadedCsv);
+    expect(parsed.errors.length).toBe(0);
+    expect(parsed.courses.length).toBe(2);
+
+    const mbaCourse = parsed.courses[0];
+    expect(mbaCourse.code).toBe("MBA294.99");
+    expect(mbaCourse.name).toBe("Custom AI Venture Studio");
+    expect(mbaCourse.units).toBe(3);
+    expect(mbaCourse.experiential).toBe(true);
+    expect(mbaCourse.certificates).toContain("AI");
+    expect(mbaCourse.meetings.length).toBe(1);
+    expect(mbaCourse.meetings[0].days).toEqual(["Mon", "Wed"]);
+    expect(mbaCourse.meetings[0].startMin).toBe(540); // 9:00 AM
+    expect(mbaCourse.meetings[0].endMin).toBe(660); // 11:00 AM
+    expect(mbaCourse.dataSource).toBe("haas");
+
+    const csCourse = parsed.courses[1];
+    expect(csCourse.code).toBe("COMPSCI 294");
+    expect(csCourse.dataSource).toBe("berkeley");
+    expect(csCourse.meetings[0].days).toEqual(["Tue", "Thu"]);
+    expect(csCourse.meetings[0].startMin).toBe(840); // 2:00 PM
+    expect(csCourse.meetings[0].endMin).toBe(960); // 4:00 PM
   });
 });

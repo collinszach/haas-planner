@@ -51,18 +51,23 @@ export function Navbar({
   }, [currentProfile?.avatarUrl]);
 
   const isCoordinator = Boolean(currentProfile?.isAdmin);
+  const isY2 = currentProfile?.classYear === "Y2";
 
   const tabs: { id: AppTab; label: string; badge?: number; icon?: "shield" }[] = [
     {
       id: "planner",
       label: "Planner",
-      badge: autoSwapCount > 0 ? autoSwapCount : undefined,
+      badge: !isY2 && autoSwapCount > 0 ? autoSwapCount : undefined,
     },
-    {
-      id: "swaps",
-      label: "Swaps",
-      badge: pendingMatchCount > 0 ? pendingMatchCount : undefined,
-    },
+    ...(!isY2
+      ? [
+          {
+            id: "swaps" as const,
+            label: "Swaps",
+            badge: pendingMatchCount > 0 ? pendingMatchCount : undefined,
+          },
+        ]
+      : []),
     {
       id: "audit",
       label: "Degree Audit",
@@ -194,7 +199,7 @@ export function Navbar({
               )}
               <span className="max-w-[135px] truncate">{currentProfile.fullName}</span>
               <span className="hidden text-[#6E6E73] md:inline">
-                · {currentProfile.homeCohort}
+                · {isY2 ? "Y2" : currentProfile.homeCohort}
               </span>
             </button>
           )}

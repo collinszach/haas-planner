@@ -78,6 +78,7 @@ export interface StudentProfile {
   blockedSlots: TimeSlotToken[];
   currentSections: Record<CourseName, string>;
   confirmedYear?: string | null;
+  classYear?: "Y1" | "Y2";
   isAdmin?: boolean;
   createdAt?: string;
   degreeTrack?: DegreeTrack;

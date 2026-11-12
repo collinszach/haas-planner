@@ -440,6 +440,7 @@ export async function fetchDashboardData(
             ? p.current_sections
             : getDefaultSectionsForCohort(p.home_cohort ?? "Blue"),
         confirmedYear: (p.confirmed_year as string | null) ?? null,
+        classYear: (p.class_year as "Y1" | "Y2") ?? "Y1",
         isAdmin: Boolean(p.is_admin),
         createdAt: p.created_at,
         degreeTrack: (p.degree_track as DegreeTrack) ?? "FTMBA",
@@ -589,6 +590,7 @@ export async function saveStudentProfile(
       blocked_slots: normalized.blockedSlots,
       current_sections: normalized.currentSections,
       confirmed_year: normalized.confirmedYear ?? null,
+      class_year: normalized.classYear ?? "Y1",
       degree_track: normalized.degreeTrack ?? "FTMBA",
       meng_track: normalized.mengTrackId ?? null,
       target_certificates: normalized.targetCertificates ?? [],

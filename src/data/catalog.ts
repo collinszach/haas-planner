@@ -1,4 +1,8 @@
 import rawCatalog from "./haasCatalog.json";
+import {
+  getCustomCoursesForSemester,
+  getStoredCustomCourses,
+} from "@/lib/courseCatalogManager";
 import type { BerkeleyClassResult, CatalogCourse, SemesterId } from "@/types/planner";
 import type { PlannedCourseRecord } from "@/types/swap";
 
@@ -27,31 +31,48 @@ export const CERTIFICATE_LABELS: Record<string, string> = {
   RE: "Real Estate",
 };
 
+function mergeCatalogWithCustom(
+  base: CatalogCourse[],
+  custom: CatalogCourse[],
+): CatalogCourse[] {
+  if (custom.length === 0) return base;
+  const byCode = new Map<string, CatalogCourse>();
+  for (const c of base) {
+    byCode.set(`${c.code.toUpperCase()}:${c.season}`, c);
+  }
+  for (const c of custom) {
+    byCode.set(`${c.code.toUpperCase()}:${c.season}`, c);
+  }
+  return Array.from(byCode.values());
+}
+
 /**
- * Returns Haas electives relevant to a target semester slot in the 4-semester plan.
- * - Y1_Fall: Fall 2026 schedule (+ Fall/Spring historical)
- * - Y1_Spring: Spring 2027 schedule
- * - Y2_Fall: Fall 2026 schedule reused as Year 2 Fall planning template + Historical Fall offerings
- * - Y2_Spring: Spring 2027 schedule reused as Year 2 Spring planning template + Historical Spring offerings
+ * Returns Haas electives (plus any custom uploaded MBA or campus electives)
+ * relevant to a target semester slot in the 4-semester plan.
  */
 export function getCatalogForSemester(semesterId: SemesterId): CatalogCourse[] {
+  let base: CatalogCourse[];
   if (semesterId === "Y1_Spring") {
-    return SPRING_2027_COURSES;
-  }
-  if (semesterId === "Y1_Fall") {
-    return FALL_2026_COURSES;
-  }
-  if (semesterId === "Y2_Fall") {
+    base = SPRING_2027_COURSES;
+  } else if (semesterId === "Y1_Fall") {
+    base = FALL_2026_COURSES;
+  } else if (semesterId === "Y2_Fall") {
     const extraFall = HISTORICAL_HAAS_COURSES.filter(
       (c) => c.season === "Fall" || c.season === "Fall & Spring" || c.season === "Varies",
     );
-    return [...FALL_2026_COURSES, ...extraFall];
+    base = [...FALL_2026_COURSES, ...extraFall];
+  } else {
+    // Y2_Spring
+    const extraSpring = HISTORICAL_HAAS_COURSES.filter(
+      (c) => c.season === "Spring" || c.season === "Fall & Spring" || c.season === "Varies",
+    );
+    base = [...SPRING_2027_COURSES, ...extraSpring];
   }
-  // Y2_Spring
-  const extraSpring = HISTORICAL_HAAS_COURSES.filter(
-    (c) => c.season === "Spring" || c.season === "Fall & Spring" || c.season === "Varies",
-  );
-  return [...SPRING_2027_COURSES, ...extraSpring];
+  return mergeCatalogWithCustom(base, getCustomCoursesForSemester(semesterId));
+}
+
+export function getAllCombinedCourses(): CatalogCourse[] {
+  return mergeCatalogWithCustom(ALL_HAAS_COURSES, getStoredCustomCourses());
 }
 
 export function catalogCourseToPlannedRecord(
