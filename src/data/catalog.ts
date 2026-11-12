@@ -47,8 +47,29 @@ function mergeCatalogWithCustom(
 }
 
 /**
+ * Projects a catalog course from a previous template semester into a target future semester.
+ * Preserves course code, name, units, professor evaluation, and meeting time patterns,
+ * while uniquely scoping IDs and term labels to the target semester.
+ */
+function projectCourseForSemester(
+  course: CatalogCourse,
+  semesterId: SemesterId,
+  targetTermYear: string,
+): CatalogCourse {
+  const isSpring = semesterId.includes("Spring");
+  return {
+    ...course,
+    id: `${semesterId}:${course.code}`,
+    termYear: targetTermYear,
+    season: isSpring ? "Spring" : "Fall",
+  };
+}
+
+/**
  * Returns Haas electives (plus any custom uploaded MBA or campus electives)
  * relevant to a target semester slot in the 4-semester plan.
+ * For future semesters, prior semesters (Fall 2026 / Spring 2027) act as the template
+ * and project forward classes and time slots.
  */
 export function getCatalogForSemester(semesterId: SemesterId): CatalogCourse[] {
   let base: CatalogCourse[];
@@ -57,16 +78,35 @@ export function getCatalogForSemester(semesterId: SemesterId): CatalogCourse[] {
   } else if (semesterId === "Y1_Fall") {
     base = FALL_2026_COURSES;
   } else if (semesterId === "Y2_Fall") {
+    // Uses Fall 2026 as template and projects out classes to Fall 2027
     const extraFall = HISTORICAL_HAAS_COURSES.filter(
       (c) => c.season === "Fall" || c.season === "Fall & Spring" || c.season === "Varies",
     );
-    base = [...FALL_2026_COURSES, ...extraFall];
-  } else {
-    // Y2_Spring
+    const templateCourses = [...FALL_2026_COURSES, ...extraFall];
+    base = templateCourses.map((c) =>
+      projectCourseForSemester(c, "Y2_Fall", "Fall 2027 (Projected)"),
+    );
+  } else if (semesterId === "Y2_Spring") {
+    // Uses Spring 2027 as template and projects out classes to Spring 2028
     const extraSpring = HISTORICAL_HAAS_COURSES.filter(
       (c) => c.season === "Spring" || c.season === "Fall & Spring" || c.season === "Varies",
     );
-    base = [...SPRING_2027_COURSES, ...extraSpring];
+    const templateCourses = [...SPRING_2027_COURSES, ...extraSpring];
+    base = templateCourses.map((c) =>
+      projectCourseForSemester(c, "Y2_Spring", "Spring 2028 (Projected)"),
+    );
+  } else {
+    // Supports any extended program semesters (e.g. MBA/MPH 2.5-year / Y3)
+    const semStr = String(semesterId);
+    const isSpring = semStr.includes("Spring");
+    const templateCourses = isSpring ? SPRING_2027_COURSES : FALL_2026_COURSES;
+    base = templateCourses.map((c) =>
+      projectCourseForSemester(
+        c,
+        semesterId,
+        `${isSpring ? "Spring" : "Fall"} (Projected)`,
+      ),
+    );
   }
   return mergeCatalogWithCustom(base, getCustomCoursesForSemester(semesterId));
 }

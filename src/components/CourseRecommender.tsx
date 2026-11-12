@@ -57,20 +57,21 @@ type SortOption = "score" | "seats" | "worth" | "instructor" | "ease";
 type CategoryFilter = "ALL" | "EL" | "BT" | CertificateCode;
 
 export const POPULAR_GRAD_DEPTS = [
-  { code: "MBA", name: "Haas School of Business (MBA Electives)" },
-  { code: "COMPSCI", name: "Computer Science (200+)" },
-  { code: "INFO", name: "School of Information (200+)" },
-  { code: "INDENG", name: "Industrial Eng & Operations Research (200+)" },
-  { code: "PUBPOL", name: "Goldman School of Public Policy (200+)" },
-  { code: "LAW", name: "Berkeley Law (200+)" },
-  { code: "PBHLTH", name: "School of Public Health (200+)" },
-  { code: "MECENG", name: "Mechanical Engineering (200+)" },
-  { code: "DATA", name: "Data Science (200+)" },
-  { code: "ENVECON", name: "Environmental & Energy Economics (200+)" },
-  { code: "ENGIN", name: "Engineering Graduate (200+)" },
-  { code: "STAT", name: "Statistics (200+)" },
   { code: "CIVENG", name: "Civil & Environmental Engineering (200+)" },
+  { code: "COMPSCI", name: "Computer Science (200+)" },
+  { code: "DATA", name: "Data Science (200+)" },
+  { code: "ECON", name: "Economics (200+)" },
   { code: "ELENG", name: "Electrical Engineering (200+)" },
+  { code: "ENGIN", name: "Engineering Graduate (200+)" },
+  { code: "ENVECON", name: "Environmental & Energy Economics (200+)" },
+  { code: "INDENG", name: "Industrial Eng & Operations Research (200+)" },
+  { code: "INFO", name: "School of Information (200+)" },
+  { code: "LAW", name: "Berkeley Law (200+)" },
+  { code: "MBA", name: "Haas School of Business (MBA Electives)" },
+  { code: "MECENG", name: "Mechanical Engineering (200+)" },
+  { code: "PBHLTH", name: "School of Public Health (200+)" },
+  { code: "PUBPOL", name: "Goldman School of Public Policy (200+)" },
+  { code: "STAT", name: "Statistics (200+)" },
 ] as const;
 
 export function CourseRecommender({
@@ -89,6 +90,18 @@ export function CourseRecommender({
     Record<string, BerkeleyClassResult[]>
   >({});
   const [loadingDepts, setLoadingDepts] = useState<Set<string>>(new Set());
+
+  // Strictly alphabetized department list (including any custom added departments)
+  const allDeptsList = useMemo(() => {
+    const customCodes = selectedDepts.filter(
+      (code) => !POPULAR_GRAD_DEPTS.some((p) => p.code === code),
+    );
+    const combined: Array<{ code: string; name: string }> = [
+      ...POPULAR_GRAD_DEPTS,
+      ...customCodes.map((c) => ({ code: c, name: `${c} (Campus Grad 200+)` })),
+    ];
+    return combined.slice().sort((a, b) => a.code.localeCompare(b.code));
+  }, [selectedDepts]);
 
   const deptDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -478,9 +491,16 @@ export function CourseRecommender({
         {/* Header & Catalog Actions */}
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
-              Course Catalog
-            </h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
+                Course Catalog
+              </h2>
+              {semesterId.startsWith("Y2_") && (
+                <span className="rounded bg-[#003262]/10 px-1.5 py-0.5 text-[10.5px] font-medium text-[#003262]">
+                  Projected Template ({semesterId === "Y2_Fall" ? "Fall 2026" : "Spring 2027"})
+                </span>
+              )}
+            </div>
             <p className="tabular-nums text-xs text-[#6E6E73]">
               {counts.total} courses available · {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA units
             </p>
@@ -561,7 +581,7 @@ export function CourseRecommender({
 
                   {/* Department Checkbox List */}
                   <div className="max-h-56 overflow-y-auto py-1 space-y-0.5">
-                    {POPULAR_GRAD_DEPTS.map((dept) => {
+                    {allDeptsList.map((dept) => {
                       const checked = selectedDepts.includes(dept.code);
                       const isLoading = loadingDepts.has(dept.code);
                       return (

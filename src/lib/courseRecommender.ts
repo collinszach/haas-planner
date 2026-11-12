@@ -35,10 +35,14 @@ export function classifyEaseAndWorkload(course: CatalogCourse): {
   if (diff == null) {
     return { easeLabel: "Unrated", workloadLabel: "Unrated" };
   }
+  // On Haas 1-to-7 scale (4.0 is neutral midpoint):
+  // <= 3.8: Light work / High ease
+  // 3.9 - 5.2: Moderate work / Moderate
+  // > 5.2: Heavy work / Demanding
   const easeLabel: CourseRecommendation["easeLabel"] =
-    diff <= 3.6 ? "High ease" : diff <= 4.7 ? "Moderate" : "Demanding";
+    diff <= 3.8 ? "High ease" : diff <= 5.2 ? "Moderate" : "Demanding";
   const workloadLabel: CourseRecommendation["workloadLabel"] =
-    diff <= 3.6 ? "Light work" : diff <= 4.7 ? "Moderate work" : "Heavy work";
+    diff <= 3.8 ? "Light work" : diff <= 5.2 ? "Moderate work" : "Heavy work";
   return { easeLabel, workloadLabel };
 }
 
