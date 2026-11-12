@@ -61,13 +61,13 @@ export function DegreeAuditView({
   return (
     <div className="space-y-6">
       {/* Top Program Rules & Certificate Strip */}
-      <section className="rounded-xl border border-[#D8E0EA] bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#D8E0EA] pb-4">
+      <section className="rounded-[10px] border border-[#E5E5EA] bg-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#E5E5EA] pb-4">
           <div>
-            <h2 className="font-display text-2xl font-bold text-[#003262]">
+            <h2 className="text-base font-semibold tracking-[-0.01em] text-[#1D1D1F]">
               Haas MBA 4-Semester Degree Audit
             </h2>
-            <p className="mt-1 text-xs text-[#55687D]">
+            <p className="mt-1 text-xs text-[#6E6E73]">
               Live graduation progress across Core curriculum, 51-unit MBA minimum, 5-unit non-Haas
               cap, Experiential Learning, and Certificates.
             </p>
@@ -75,14 +75,14 @@ export function DegreeAuditView({
 
           <div className="flex flex-wrap items-center gap-3">
             <div>
-              <label htmlFor="audit-track-select" className="mr-2 text-xs font-semibold text-[#0F1E30]">
+              <label htmlFor="audit-track-select" className="mr-2 text-xs font-semibold text-[#1D1D1F]">
                 Track
               </label>
               <select
                 id="audit-track-select"
                 value={profile.degreeTrack ?? "FTMBA"}
                 onChange={(e) => void handleTrackChange(e.target.value as DegreeTrack)}
-                className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#003262] outline-none focus:border-[#003262]"
+                className="rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#003262] outline-none focus:border-[#003262]"
               >
                 {(Object.keys(DEGREE_TRACK_TARGETS) as DegreeTrack[]).map((t) => (
                   <option key={t} value={t}>
@@ -96,38 +96,38 @@ export function DegreeAuditView({
 
         {/* Summary Metrics Row (borderless subtle tiles inside single outer sheet) */}
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-lg bg-[#F8FAFC] p-3.5">
-            <div className="text-xs font-medium text-[#55687D]">Core Courses</div>
+          <div className="rounded-lg bg-[#FAFAFC] p-3.5">
+            <div className="text-xs font-medium text-[#6E6E73]">Core Courses</div>
             <div className="mt-1 font-mono text-2xl font-bold text-[#003262]">
               {audit.coreCompletedCount}/{audit.coreRequiredCount}
             </div>
-            <div className="mt-0.5 text-xs text-[#3D4F63]">{audit.coreUnits} Core units</div>
+            <div className="mt-0.5 text-xs text-[#48484A]">{audit.coreUnits} Core units</div>
           </div>
 
-          <div className="rounded-lg bg-[#F8FAFC] p-3.5">
-            <div className="text-xs font-medium text-[#55687D]">Valid MBA Units</div>
+          <div className="rounded-lg bg-[#FAFAFC] p-3.5">
+            <div className="text-xs font-medium text-[#6E6E73]">Valid MBA Units</div>
             <div className="mt-1 font-mono text-2xl font-bold text-[#003262]">
               {audit.validMbaUnits}/{audit.mbaUnitTarget}
             </div>
-            <div className="mt-0.5 text-xs text-[#3D4F63]">
+            <div className="mt-0.5 text-xs text-[#48484A]">
               {Math.max(0, audit.mbaUnitTarget - audit.validMbaUnits)} units remaining
             </div>
           </div>
 
-          <div className="rounded-lg bg-[#F8FAFC] p-3.5">
-            <div className="text-xs font-medium text-[#55687D]">Non-Haas Cap</div>
+          <div className="rounded-lg bg-[#FAFAFC] p-3.5">
+            <div className="text-xs font-medium text-[#6E6E73]">Non-Haas Cap</div>
             <div
               className={`mt-1 font-mono text-2xl font-bold ${
-                audit.nonHaasUnits > audit.nonHaasCap ? "text-[#B42318]" : "text-[#0F1E30]"
+                audit.nonHaasUnits > audit.nonHaasCap ? "text-[#B42318]" : "text-[#1D1D1F]"
               }`}
             >
               {audit.nonHaasUnits}/{audit.nonHaasCap}u
             </div>
-            <div className="mt-0.5 text-xs text-[#3D4F63]">UC Berkeley non-MBA</div>
+            <div className="mt-0.5 text-xs text-[#48484A]">UC Berkeley non-MBA</div>
           </div>
 
-          <div className="rounded-lg bg-[#F8FAFC] p-3.5">
-            <div className="text-xs font-medium text-[#55687D]">Experiential Learning</div>
+          <div className="rounded-lg bg-[#FAFAFC] p-3.5">
+            <div className="text-xs font-medium text-[#6E6E73]">Experiential Learning</div>
             <div
               className={`mt-1 font-mono text-2xl font-bold ${
                 audit.experientialSatisfied ? "text-[#0F6B4E]" : "text-[#8A5300]"
@@ -135,23 +135,23 @@ export function DegreeAuditView({
             >
               {audit.experientialSatisfied ? "1/1 Satisfied" : "0/1 Needed"}
             </div>
-            <div className="mt-0.5 text-xs text-[#3D4F63]">
+            <div className="mt-0.5 text-xs text-[#48484A]">
               1 Applied Innovation / EL course req. ({audit.experientialCount} planned)
             </div>
           </div>
 
-          <div className="rounded-lg bg-[#F8FAFC] p-3.5">
-            <div className="text-xs font-medium text-[#55687D]">Business &amp; Tech</div>
-            <div className="mt-1 font-mono text-2xl font-bold text-[#0F1E30]">
+          <div className="rounded-lg bg-[#FAFAFC] p-3.5">
+            <div className="text-xs font-medium text-[#6E6E73]">Business &amp; Tech</div>
+            <div className="mt-1 font-mono text-2xl font-bold text-[#1D1D1F]">
               {audit.businessTechCount}
             </div>
-            <div className="mt-0.5 text-xs text-[#3D4F63]">B&amp;T elective count</div>
+            <div className="mt-0.5 text-xs text-[#48484A]">B&amp;T elective count</div>
           </div>
         </div>
 
         {/* Target Certificates */}
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#D8E0EA] pt-4">
-          <span className="text-xs font-semibold text-[#0F1E30]">Certificate Targets:</span>
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#E5E5EA] pt-4">
+          <span className="text-xs font-semibold text-[#1D1D1F]">Certificate Targets:</span>
           {CERT_CODES.map((code) => {
             const prog = audit.certificates.find((c) => c.code === code);
             const active = (profile.targetCertificates ?? []).includes(code);
@@ -163,7 +163,7 @@ export function DegreeAuditView({
                 className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                   active
                     ? "border-[#003262] bg-[#003262] text-white"
-                    : "border-[#CBD5E1] bg-white text-[#3D4F63] hover:bg-[#F8FAFC]"
+                    : "border-[#D1D1D6] bg-white text-[#48484A] hover:bg-[#FAFAFC]"
                 }`}
               >
                 {code} · {CERTIFICATE_LABELS[code]} ({prog?.matchedUnits ?? 0}u)
@@ -192,12 +192,12 @@ export function DegreeAuditView({
           return (
             <div
               key={sem.id}
-              className="flex flex-col rounded-xl border border-[#D8E0EA] bg-white p-4 sm:p-5"
+              className="flex flex-col rounded-[10px] border border-[#E5E5EA] bg-white p-4 sm:p-5"
             >
-              <div className="mb-3 flex items-center justify-between gap-2 border-b border-[#D8E0EA] pb-2.5">
+              <div className="mb-3 flex items-center justify-between gap-2 border-b border-[#E5E5EA] pb-2.5">
                 <div>
-                  <h3 className="font-display text-lg font-bold text-[#003262]">{sem.label}</h3>
-                  <div className="font-mono text-xs text-[#55687D]">
+                  <h3 className="text-sm font-semibold text-[#1D1D1F]">{sem.label}</h3>
+                  <div className="font-mono text-xs text-[#6E6E73]">
                     {summary?.totalUnits ?? 0} total units · {summary?.coreUnits ?? 0} Core /{" "}
                     {(summary?.electiveUnits ?? 0) + (summary?.nonHaasUnits ?? 0)} Elective
                   </div>
@@ -205,7 +205,7 @@ export function DegreeAuditView({
                 <button
                   type="button"
                   onClick={() => onJumpToSemester(sem.id)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[#CBD5E1] px-2.5 py-1 text-xs font-semibold text-[#003262] hover:bg-[#F8FAFC]"
+                  className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] px-2.5 py-1 text-xs font-semibold text-[#003262] hover:bg-[#FAFAFC]"
                 >
                   Open Grid
                   <ArrowUpRight className="h-3.5 w-3.5" />
@@ -213,11 +213,11 @@ export function DegreeAuditView({
               </div>
 
               {rows.length === 0 ? (
-                <div className="py-6 text-center text-xs text-[#55687D]">
+                <div className="py-6 text-center text-xs text-[#6E6E73]">
                   No courses added to {sem.shortLabel} yet.
                 </div>
               ) : (
-                <div className="divide-y divide-[#E4EBF2]">
+                <div className="divide-y divide-[#F2F2F7]">
                   {rows.map((r) => (
                     <div
                       key={r.instanceId}
@@ -228,7 +228,7 @@ export function DegreeAuditView({
                           <span className="font-mono font-bold text-[#003262]">{r.code}</span>
                           <span
                             className={`font-medium ${
-                              r.waived ? "text-[#55687D] line-through" : "text-[#0F1E30]"
+                              r.waived ? "text-[#6E6E73] line-through" : "text-[#1D1D1F]"
                             }`}
                           >
                             {r.name}
@@ -239,7 +239,7 @@ export function DegreeAuditView({
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-[#55687D]">
+                        <div className="text-xs text-[#6E6E73]">
                           {r.instructors} · {r.units}u · {r.dayLabel ?? ""} {r.timeLabel ?? ""}
                         </div>
                       </div>
@@ -252,7 +252,7 @@ export function DegreeAuditView({
                             onChange={(e) =>
                               void handleMoveElective(r.instanceId, e.target.value as SemesterId)
                             }
-                            className="rounded border border-[#CBD5E1] bg-white px-2 py-1 text-xs text-[#3D4F63]"
+                            className="rounded border border-[#D1D1D6] bg-white px-2 py-1 text-xs text-[#48484A]"
                           >
                             {SEMESTER_META.map((opt) => (
                               <option key={opt.id} value={opt.id}>
@@ -280,8 +280,8 @@ export function DegreeAuditView({
       </section>
 
       {/* Core 11-Course Checklist */}
-      <section className="rounded-xl border border-[#D8E0EA] bg-white p-5">
-        <h3 className="font-display text-lg font-bold text-[#003262]">
+      <section className="rounded-[10px] border border-[#E5E5EA] bg-white p-5">
+        <h3 className="text-sm font-semibold text-[#1D1D1F]">
           FTMBA Required Core Curriculum (11 Courses · 20 Units)
         </h3>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -290,15 +290,15 @@ export function DegreeAuditView({
             return (
               <div
                 key={c.code}
-                className="flex items-center justify-between gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs"
+                className="flex items-center justify-between gap-2 rounded-lg bg-[#FAFAFC] px-3 py-2 text-xs"
               >
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0F6B4E]" />
                   <div>
-                    <div className="font-semibold text-[#0F1E30]">
+                    <div className="font-semibold text-[#1D1D1F]">
                       {c.code} · {c.shortName}
                     </div>
-                    <div className="text-xs text-[#55687D]">
+                    <div className="text-xs text-[#6E6E73]">
                       {c.semester === "Y1_Fall" ? "Fall" : "Spring"} Part {c.part} · {c.units}u
                     </div>
                   </div>

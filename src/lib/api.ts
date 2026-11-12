@@ -60,7 +60,34 @@ function hydrateProfile(p: StudentProfile): StudentProfile {
     targetCertificates: p.targetCertificates ?? [],
     plannedCourses: p.plannedCourses ?? [],
     plannedBids: p.plannedBids ?? {},
+    avatarUrl: p.avatarUrl ?? null,
   };
+}
+
+export function computeCourseDemandFromProfiles(
+  profiles: Iterable<StudentProfile>,
+): Record<string, number> {
+  const seenByKey = new Map<string, Set<string>>();
+  for (const profile of profiles) {
+    for (const course of profile.plannedCourses ?? []) {
+      const keys = new Set<string>();
+      if (course.courseId?.trim()) keys.add(course.courseId.trim());
+      if (course.code?.trim()) keys.add(course.code.trim());
+      for (const k of keys) {
+        let bucket = seenByKey.get(k);
+        if (!bucket) {
+          bucket = new Set<string>();
+          seenByKey.set(k, bucket);
+        }
+        bucket.add(profile.id);
+      }
+    }
+  }
+  const counts: Record<string, number> = {};
+  for (const [k, ids] of seenByKey.entries()) {
+    counts[k] = ids.size;
+  }
+  return counts;
 }
 
 const DEFAULT_PROGRAM_CONFIG: ProgramConfig = {
@@ -224,6 +251,7 @@ export async function fetchDashboardData(
   sections: SectionInfo[];
   swapWindows: SwapWindow[];
   programConfig: ProgramConfig;
+  courseDemand: Record<string, number>;
 }> {
   if (mode === "sandbox" || !isSupabaseConfigured || !supabase) {
     const box = loadSandbox();
@@ -266,6 +294,9 @@ export async function fetchDashboardData(
       }));
     const marketPulse = computeMarketPulse(box.state.requests);
     const queue = computeAnonymizedQueue(box.state.requests, userId);
+    const courseDemand = computeCourseDemandFromProfiles(
+      Object.values(box.state.profiles),
+    );
     return {
       profile,
       requests,
@@ -275,6 +306,7 @@ export async function fetchDashboardData(
       sections: SECTIONS.map(cloneSection),
       swapWindows: SWAP_WINDOWS.map((w) => ({ ...w })),
       programConfig,
+      courseDemand,
     };
   }
 
@@ -295,6 +327,7 @@ export async function fetchDashboardData(
     sectionsRes,
     windowsRes,
     configRes,
+    demandRes,
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
     supabase
@@ -325,6 +358,7 @@ export async function fetchDashboardData(
       .eq("is_active", true)
       .order("starts_at", { ascending: true }),
     supabase.from("program_config").select("*").eq("id", "current").maybeSingle(),
+    supabase.rpc("get_course_planned_counts"),
   ]);
 
   if (profileRes.error) throw profileRes.error;
@@ -411,6 +445,7 @@ export async function fetchDashboardData(
         targetCertificates: (p.target_certificates as CertificateCode[]) ?? [],
         plannedCourses: (p.planned_courses as PlannedCourseRecord[]) ?? [],
         plannedBids: (p.planned_bids as Record<string, number>) ?? {},
+        avatarUrl: (p.avatar_url as string | null) ?? null,
       })
     : null;
 
@@ -501,6 +536,20 @@ export async function fetchDashboardData(
     isMine: Boolean(q.is_mine),
   }));
 
+  const courseDemand: Record<string, number> = {};
+  if (!demandRes.error && Array.isArray(demandRes.data)) {
+    for (const row of demandRes.data as Array<{
+      course_key: string;
+      planned_count: number | string;
+    }>) {
+      if (row.course_key) {
+        courseDemand[row.course_key] = Number(row.planned_count) || 0;
+      }
+    }
+  } else if (profile) {
+    Object.assign(courseDemand, computeCourseDemandFromProfiles([profile]));
+  }
+
   return {
     profile,
     requests,
@@ -510,6 +559,7 @@ export async function fetchDashboardData(
     sections: liveSections,
     swapWindows: liveWindows,
     programConfig,
+    courseDemand,
   };
 }
 
@@ -541,6 +591,7 @@ export async function saveStudentProfile(
       target_certificates: normalized.targetCertificates ?? [],
       planned_courses: normalized.plannedCourses ?? [],
       planned_bids: normalized.plannedBids ?? {},
+      avatar_url: normalized.avatarUrl ?? null,
     },
     { onConflict: "id" },
   );

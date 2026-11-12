@@ -138,20 +138,20 @@ export function ProfileSetup({
   return (
     <form
       onSubmit={handleSubmit}
-      className={`rounded-xl border border-[#D8E0EA] bg-white ${
+      className={`rounded-[10px] border border-[#E5E5EA] bg-white ${
         isModal ? "p-6" : "mx-auto my-6 max-w-3xl p-6 sm:p-8"
       }`}
     >
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-[#D8E0EA] pb-4">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E5EA] pb-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[#003262]">
+          <h1 className="text-base font-semibold tracking-[-0.01em] text-[#1D1D1F]">
             {isCohortReconfirm
               ? `Confirm Cohort for ${programConfig?.cycleLabel ?? "New Cycle"}`
               : initialProfile?.fullName
                 ? "Student Profile & Program Settings"
                 : "Haas Planner Setup"}
           </h1>
-          <p className="mt-1 text-xs text-[#55687D]">
+          <p className="mt-1 text-xs text-[#6E6E73]">
             Your Cohort preloads all Fall and Spring Core classes onto your 30-minute timetable.
           </p>
         </div>
@@ -172,7 +172,7 @@ export function ProfileSetup({
           <div>
             <label
               htmlFor="profile-fullname"
-              className="mb-1.5 block text-xs font-semibold text-[#0F1E30]"
+              className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]"
             >
               Full Name
             </label>
@@ -183,14 +183,14 @@ export function ProfileSetup({
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="First Last"
-              className="w-full rounded-lg border border-[#CBD5E1] px-3 py-2 text-sm text-[#0F1E30] outline-none focus:border-[#003262]"
+              className="w-full rounded-[6px] border border-[#D1D1D6] px-3 py-2 text-sm text-[#1D1D1F] outline-none focus:border-[#003262]"
             />
           </div>
 
           <div>
             <label
               htmlFor="profile-track"
-              className="mb-1.5 block text-xs font-semibold text-[#0F1E30]"
+              className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]"
             >
               Degree Program
             </label>
@@ -198,7 +198,7 @@ export function ProfileSetup({
               id="profile-track"
               value={degreeTrack}
               onChange={(e) => setDegreeTrack(e.target.value as DegreeTrack)}
-              className="w-full rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1E30] outline-none focus:border-[#003262]"
+              className="w-full rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-2 text-sm text-[#1D1D1F] outline-none focus:border-[#003262]"
             >
               {(Object.keys(DEGREE_TRACK_TARGETS) as DegreeTrack[]).map((t) => (
                 <option key={t} value={t}>
@@ -210,7 +210,7 @@ export function ProfileSetup({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-xs font-semibold text-[#0F1E30]">
+          <span className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]">
             Home Cohort (sets Core schedule baseline)
           </span>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -224,15 +224,15 @@ export function ProfileSetup({
                   className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition ${
                     selected
                       ? "border-[#003262] bg-[#E8EFF7]"
-                      : "border-[#D8E0EA] bg-white hover:bg-[#F8FAFC]"
+                      : "border-[#E5E5EA] bg-white hover:bg-[#FAFAFC]"
                   }`}
                 >
                   <span
                     className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${COHORT_COLORS[c].dot}`}
                   />
                   <div>
-                    <div className="text-sm font-bold text-[#0F1E30]">{c} Cohort</div>
-                    <div className="text-xs text-[#55687D]">{COHORT_SUMMARY[c]}</div>
+                    <div className="text-sm font-bold text-[#1D1D1F]">{c} Cohort</div>
+                    <div className="text-xs text-[#6E6E73]">{COHORT_SUMMARY[c]}</div>
                   </div>
                 </button>
               );
@@ -241,7 +241,7 @@ export function ProfileSetup({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-xs font-semibold text-[#0F1E30]">
+          <span className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]">
             Target Certificates (boosts recommender prioritization)
           </span>
           <div className="flex flex-wrap gap-2">
@@ -255,7 +255,7 @@ export function ProfileSetup({
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                     active
                       ? "border-[#003262] bg-[#003262] text-white"
-                      : "border-[#CBD5E1] bg-white text-[#3D4F63] hover:bg-[#F8FAFC]"
+                      : "border-[#D1D1D6] bg-white text-[#48484A] hover:bg-[#FAFAFC]"
                   }`}
                 >
                   {code} · {CERTIFICATE_LABELS[code]}
@@ -265,7 +265,7 @@ export function ProfileSetup({
           </div>
         </div>
 
-        <div className="border-t border-[#D8E0EA] pt-4">
+        <div className="border-t border-[#E5E5EA] pt-4">
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
@@ -276,18 +276,18 @@ export function ProfileSetup({
               Student ID (SID), Waived Courses &amp; Manual Spring Core Sections
             </span>
             {showAdvanced ? (
-              <ChevronUp className="h-4 w-4 text-[#55687D]" />
+              <ChevronUp className="h-4 w-4 text-[#6E6E73]" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-[#55687D]" />
+              <ChevronDown className="h-4 w-4 text-[#6E6E73]" />
             )}
           </button>
 
           {showAdvanced && (
-            <div className="mt-4 space-y-4 rounded-lg bg-[#F8FAFC] p-4">
+            <div className="mt-4 space-y-4 rounded-lg bg-[#FAFAFC] p-4">
               <div>
                 <label
                   htmlFor="profile-sid"
-                  className="mb-1 block text-xs font-semibold text-[#0F1E30]"
+                  className="mb-1 block text-xs font-semibold text-[#1D1D1F]"
                 >
                   UC Berkeley Student ID (Optional — revealed only to confirmed swap partners)
                 </label>
@@ -299,15 +299,15 @@ export function ProfileSetup({
                   onChange={(e) => setStudentId(e.target.value.replace(/\D/g, ""))}
                   placeholder="Optional (8–10 digits)"
                   maxLength={10}
-                  className="w-full max-w-xs rounded-lg border border-[#CBD5E1] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#003262]"
+                  className="w-full max-w-xs rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#003262]"
                 />
               </div>
 
               <div>
-                <div className="mb-2 text-xs font-semibold text-[#0F1E30]">
+                <div className="mb-2 text-xs font-semibold text-[#1D1D1F]">
                   Spring 2027 Core Sections &amp; Waived Courses
                 </div>
-                <div className="divide-y divide-[#D8E0EA] rounded-lg bg-white">
+                <div className="divide-y divide-[#E5E5EA] rounded-lg bg-white">
                   {COURSES.map((course) => {
                     const options = SECTIONS.filter((s) => s.course === course);
                     const isWaived = waivedCourses.includes(course);
@@ -317,13 +317,13 @@ export function ProfileSetup({
                         className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="w-20 text-xs font-bold text-[#0F1E30]">{course}</span>
-                          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#55687D]">
+                          <span className="w-20 text-xs font-bold text-[#1D1D1F]">{course}</span>
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#6E6E73]">
                             <input
                               type="checkbox"
                               checked={isWaived}
                               onChange={() => toggleWaived(course)}
-                              className="rounded border-[#CBD5E1] text-[#003262]"
+                              className="rounded border-[#D1D1D6] text-[#003262]"
                             />
                             Waived
                           </label>
@@ -337,7 +337,7 @@ export function ProfileSetup({
                               [course]: e.target.value,
                             }))
                           }
-                          className="w-full max-w-xs rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1 text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
+                          className="w-full max-w-xs rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1 text-xs text-[#1D1D1F] outline-none focus:border-[#003262]"
                         >
                           {options.map((sec) => (
                             <option key={sec.id} value={sec.id}>
@@ -355,12 +355,12 @@ export function ProfileSetup({
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-end gap-3 border-t border-[#D8E0EA] pt-4">
+      <div className="mt-6 flex items-center justify-end gap-3 border-t border-[#E5E5EA] pt-4">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-[#CBD5E1] px-4 py-2 text-xs font-semibold text-[#3D4F63] hover:bg-[#F8FAFC]"
+            className="rounded-[6px] border border-[#D1D1D6] px-4 py-2 text-xs font-semibold text-[#48484A] hover:bg-[#FAFAFC]"
           >
             Cancel
           </button>

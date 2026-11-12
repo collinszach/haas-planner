@@ -84,6 +84,7 @@ export interface StudentProfile {
   targetCertificates?: CertificateCode[];
   plannedCourses?: PlannedCourseRecord[];
   plannedBids?: Record<string, number>;
+  avatarUrl?: string | null;
 }
 
 export type SwapStatus =

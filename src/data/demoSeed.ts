@@ -1,7 +1,15 @@
+import { catalogCourseToPlannedRecord, SPRING_2027_COURSES } from "@/data/catalog";
 import { getDefaultSectionsForCohort } from "@/data/sections";
 import type { MatchEngineState } from "@/lib/matcher";
 import { normalizeSlotTokens } from "@/lib/timeSlots";
-import type { StudentProfile, SwapRequest } from "@/types/swap";
+import type { PlannedCourseRecord, StudentProfile, SwapRequest } from "@/types/swap";
+
+function demoPlanned(codes: string[]): PlannedCourseRecord[] {
+  return codes
+    .map((code) => SPRING_2027_COURSES.find((c) => c.code === code))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c))
+    .map((c) => catalogCourseToPlannedRecord(c, "Y1_Spring"));
+}
 
 export const DEMO_PROFILES: Record<string, StudentProfile> = {
   "demo-maya": {
@@ -35,7 +43,7 @@ export const DEMO_PROFILES: Record<string, StudentProfile> = {
     createdAt: "2026-11-09T08:12:00-08:00",
     degreeTrack: "FTMBA",
     targetCertificates: ["AI"],
-    plannedCourses: [],
+    plannedCourses: demoPlanned(["MBA231.2", "MBA253.1", "MBA236E.1"]),
     plannedBids: {},
   },
   "demo-sofia": {
@@ -52,7 +60,7 @@ export const DEMO_PROFILES: Record<string, StudentProfile> = {
     createdAt: "2026-11-09T09:00:00-08:00",
     degreeTrack: "FTMBA",
     targetCertificates: ["SB"],
-    plannedCourses: [],
+    plannedCourses: demoPlanned(["MBA212.1", "MBA231.2", "MBA269.1"]),
     plannedBids: {},
   },
   "demo-noah": {
@@ -69,7 +77,7 @@ export const DEMO_PROFILES: Record<string, StudentProfile> = {
     createdAt: "2026-11-09T09:30:00-08:00",
     degreeTrack: "FTMBA",
     targetCertificates: [],
-    plannedCourses: [],
+    plannedCourses: demoPlanned(["MBA231.2", "MBA224A.1", "MBA212.1"]),
     plannedBids: {},
   },
 };

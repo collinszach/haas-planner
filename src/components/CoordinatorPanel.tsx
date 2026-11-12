@@ -329,11 +329,11 @@ export function CoordinatorPanel({
 
   if (!canManageAdmin) {
     return (
-      <section className="rounded-xl border border-[#D8E0EA] bg-white p-6 text-center">
-        <h2 className="font-display text-xl font-bold text-[#003262]">
+      <section className="rounded-[10px] border border-[#E5E5EA] bg-white p-6 text-center">
+        <h2 className="text-sm font-semibold tracking-[-0.01em] text-[#1D1D1F]">
           Restricted Coordinator Workspace
         </h2>
-        <p className="mt-1 text-xs text-[#55687D]">
+        <p className="mt-1 text-xs text-[#6E6E73]">
           Only designated Haas program coordinators can access swap pool resets, core schedule
           administration, and sheet audits.
         </p>
@@ -344,14 +344,14 @@ export function CoordinatorPanel({
   return (
     <div className="space-y-6">
       {/* Designated Coordinators Allowlist */}
-      <section className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#D8E0EA] pb-3">
+      <section className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E5EA] pb-3">
           <div>
             <h2 className="flex items-center gap-2 text-base font-bold text-[#003262]">
               <ShieldCheck className="h-4 w-4 text-[#0F6B4E]" />
               Designated Coordinators ({coordinators.length})
             </h2>
-            <p className="mt-0.5 text-xs text-[#55687D]">
+            <p className="mt-0.5 text-xs text-[#6E6E73]">
               Only accounts listed here can see or operate the Coordinator tab.
             </p>
           </div>
@@ -368,7 +368,7 @@ export function CoordinatorPanel({
               value={coordEmail}
               onChange={(e) => setCoordEmail(e.target.value)}
               placeholder="teammate@berkeley.edu"
-              className="rounded-lg border border-[#CBD5E1] px-2.5 py-1.5 text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
+              className="rounded-[6px] border border-[#D1D1D6] px-2.5 py-1.5 text-xs text-[#1D1D1F] outline-none focus:border-[#003262]"
             />
             <button
               type="submit"
@@ -393,7 +393,7 @@ export function CoordinatorPanel({
           </div>
         )}
 
-        <div className="mt-3 divide-y divide-[#E4EBF2] rounded-lg bg-[#F8FAFC]">
+        <div className="mt-3 divide-y divide-[#F2F2F7] rounded-lg bg-[#FAFAFC]">
           {coordinators.map((c) => {
             const isSelf =
               c.id === profile?.id || c.email.toLowerCase() === profile?.email.toLowerCase();
@@ -403,15 +403,15 @@ export function CoordinatorPanel({
                 className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 text-xs"
               >
                 <div>
-                  <span className="font-semibold text-[#0F1E30]">{c.fullName}</span>{" "}
-                  <span className="font-mono text-[#55687D]">({c.email})</span>
+                  <span className="font-semibold text-[#1D1D1F]">{c.fullName}</span>{" "}
+                  <span className="font-mono text-[#6E6E73]">({c.email})</span>
                 </div>
                 {!isSelf ? (
                   <button
                     type="button"
                     disabled={coordBusy}
                     onClick={() => void handleSetCoordinator(c.email, false)}
-                    className="rounded-md border border-[#CBD5E1] bg-white px-2.5 py-1 text-xs font-medium text-[#3D4F63] hover:border-[#F5C2BE] hover:text-[#B42318] disabled:opacity-50"
+                    className="rounded-md border border-[#D1D1D6] bg-white px-2.5 py-1 text-xs font-medium text-[#48484A] hover:border-[#F5C2BE] hover:text-[#B42318] disabled:opacity-50"
                   >
                     Revoke
                   </button>
@@ -426,14 +426,14 @@ export function CoordinatorPanel({
 
       {/* Admin Program Lifecycle & Core Time-Slot Resets */}
       {canManageAdmin && (
-        <div className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#D8E0EA] pb-4">
+        <div className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E5EA] pb-4">
             <div>
               <h2 className="flex items-center gap-2 text-base font-bold text-[#003262]">
                 <Settings2 className="h-4 w-4 text-[#FDB515]" />
                 Coordinator Controls: Timeline, Yearly Class &amp; Core Slot Resets
               </h2>
-              <p className="mt-0.5 text-xs text-[#55687D]">
+              <p className="mt-0.5 text-xs text-[#6E6E73]">
                 Manage automatic matching timeline expiration, roll over the app
                 for a new academic year &amp; incoming cohorts, or reset/edit core
                 class time slots.
@@ -446,7 +446,7 @@ export function CoordinatorPanel({
 
           <div className="grid gap-5 lg:grid-cols-2">
             {/* Panel 1: Swap Timeline & End-of-Timeline Reset */}
-            <div className="space-y-3 bg-[#F8FAFC] p-4">
+            <div className="space-y-3 bg-[#FAFAFC] p-4">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#003262]">
                 <CalendarClock className="h-4 w-4 text-[#FDB515]" />
                 1. Swap Timeline &amp; Auto-Reset Policy
@@ -454,7 +454,7 @@ export function CoordinatorPanel({
 
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-[#3D4F63]">
+                  <label className="mb-1 block text-xs font-semibold text-[#48484A]">
                     Academic Year
                   </label>
                   <input
@@ -465,7 +465,7 @@ export function CoordinatorPanel({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-[#3D4F63]">
+                  <label className="mb-1 block text-xs font-semibold text-[#48484A]">
                     Term / Cycle Label
                   </label>
                   <input
@@ -477,7 +477,7 @@ export function CoordinatorPanel({
                 </div>
               </div>
 
-              <label className="flex cursor-pointer items-center gap-2 bg-white px-3 py-2 text-xs font-medium text-[#3D4F63]">
+              <label className="flex cursor-pointer items-center gap-2 bg-white px-3 py-2 text-xs font-medium text-[#48484A]">
                 <input
                   type="checkbox"
                   checked={autoResetOnTimelineEnd}
@@ -488,16 +488,16 @@ export function CoordinatorPanel({
                 Window closes
               </label>
 
-              <div className="divide-y divide-[#D8E0EA] bg-white">
+              <div className="divide-y divide-[#E5E5EA] bg-white">
                 {draftWindows.map((w, idx) => (
                   <div
                     key={w.id}
                     className="p-2.5"
                   >
-                    <div className="mb-1.5 text-xs font-bold text-[#0F1E30]">{w.name}</div>
+                    <div className="mb-1.5 text-xs font-bold text-[#1D1D1F]">{w.name}</div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div>
-                        <span className="block text-xs text-[#55687D]">Opens</span>
+                        <span className="block text-xs text-[#6E6E73]">Opens</span>
                         <input
                           type="datetime-local"
                           value={toDatetimeLocalValue(w.startsAt)}
@@ -511,11 +511,11 @@ export function CoordinatorPanel({
                               ),
                             );
                           }}
-                          className="w-full rounded border border-[#CBD5E1] px-2 py-1 text-xs"
+                          className="w-full rounded border border-[#D1D1D6] px-2 py-1 text-xs"
                         />
                       </div>
                       <div>
-                        <span className="block text-xs text-[#55687D]">
+                        <span className="block text-xs text-[#6E6E73]">
                           Closes / Timeline End
                         </span>
                         <input
@@ -531,7 +531,7 @@ export function CoordinatorPanel({
                               ),
                             );
                           }}
-                          className="w-full rounded border border-[#CBD5E1] px-2 py-1 text-xs"
+                          className="w-full rounded border border-[#D1D1D6] px-2 py-1 text-xs"
                         />
                       </div>
                     </div>
@@ -582,12 +582,12 @@ export function CoordinatorPanel({
             </div>
 
             {/* Panel 2: New Year / New Class & Cohorts Rollover */}
-            <div className="space-y-3 bg-[#F8FAFC] p-4">
+            <div className="space-y-3 bg-[#FAFAFC] p-4">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#003262]">
                 <RefreshCw className="h-4 w-4 text-[#FDB515]" />
                 2. New Academic Year &amp; Class Cohorts Reset
               </div>
-              <p className="text-xs text-[#3D4F63]">
+              <p className="text-xs text-[#48484A]">
                 Transition to a brand-new MBA class &amp; cohort cycle. Archives
                 prior swap history and prompts students to confirm their new
                 cohort.
@@ -595,7 +595,7 @@ export function CoordinatorPanel({
 
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-[#3D4F63]">
+                  <label className="mb-1 block text-xs font-semibold text-[#48484A]">
                     Next Academic Year
                   </label>
                   <input
@@ -607,7 +607,7 @@ export function CoordinatorPanel({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-[#3D4F63]">
+                  <label className="mb-1 block text-xs font-semibold text-[#48484A]">
                     Next Term Label
                   </label>
                   <input
@@ -621,7 +621,7 @@ export function CoordinatorPanel({
               </div>
 
               <div className="space-y-2">
-                <label className="flex cursor-pointer items-center gap-2 bg-white px-3 py-2 text-xs text-[#3D4F63]">
+                <label className="flex cursor-pointer items-center gap-2 bg-white px-3 py-2 text-xs text-[#48484A]">
                   <input
                     type="checkbox"
                     checked={resetStudentCohorts}
@@ -630,7 +630,7 @@ export function CoordinatorPanel({
                   />
                   Reset all student cohorts, core sections &amp; blocked slots
                 </label>
-                <label className="flex cursor-pointer items-center gap-2 bg-white px-3 py-2 text-xs text-[#3D4F63]">
+                <label className="flex cursor-pointer items-center gap-2 bg-white px-3 py-2 text-xs text-[#48484A]">
                   <input
                     type="checkbox"
                     checked={clearSwapHistory}
@@ -655,7 +655,7 @@ export function CoordinatorPanel({
 
           {/* Inline Confirmation Banner for Destructive/Lifecycle Resets */}
           {confirmAction && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-950">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-950">
               <span>
                 {confirmAction === "expire_active" &&
                   "Confirm: Cancel all unmatched waiting requests in the active pool right now?"}
@@ -713,13 +713,13 @@ export function CoordinatorPanel({
           )}
 
           {/* Panel 3: Core Classes & Time Slots Manager / Reset */}
-          <div className="mt-5 border-t border-[#D8E0EA] pt-5">
+          <div className="mt-5 border-t border-[#E5E5EA] pt-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#003262]">
                   3. Core Classes Time Slots (Edit or Reset for New Year)
                 </h3>
-                <p className="text-xs text-[#55687D]">
+                <p className="text-xs text-[#6E6E73]">
                   Conflict guard, Schedule Grid, and Swap Advisor update
                   immediately when you save or reset core class time slots.
                 </p>
@@ -762,10 +762,10 @@ export function CoordinatorPanel({
               </div>
             </div>
 
-            <div className="overflow-x-auto border-y border-[#D8E0EA] bg-white">
+            <div className="overflow-x-auto border-y border-[#E5E5EA] bg-white">
               <table className="w-full min-w-[760px] border-collapse text-left text-xs">
                 <thead>
-                  <tr className="border-b border-[#D8E0EA] bg-[#F8FAFC] text-xs font-semibold uppercase text-[#55687D]">
+                  <tr className="border-b border-[#E5E5EA] bg-[#FAFAFC] text-xs font-semibold uppercase text-[#6E6E73]">
                     <th className="px-3 py-2">Course &amp; Cohort</th>
                     <th className="px-3 py-2">Lecture Time Slot</th>
                     <th className="px-3 py-2">Friday Discussion</th>
@@ -863,14 +863,14 @@ export function CoordinatorPanel({
       )}
 
       {/* Legacy Google Sheet Auditor */}
-      <div className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">
+      <div className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 text-base font-bold text-[#003262]">
               <FileSearch className="h-4 w-4 text-[#FDB515]" />
               Legacy Google Sheet Auditor
             </h2>
-            <p className="mt-0.5 text-xs text-[#55687D]">
+            <p className="mt-0.5 text-xs text-[#6E6E73]">
               Paste raw CSV/sheet exports to automatically flag email typos,
               mismatched Course tags, blank statuses, duplicate rows, and stale
               one-sided matches.
@@ -887,18 +887,18 @@ export function CoordinatorPanel({
           value={csvText}
           onChange={(e) => setCsvText(e.target.value)}
           placeholder="Paste raw CSV lines from the old Google Sheet here..."
-          className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs outline-none focus:border-berkeley-blue focus:ring-2 focus:ring-berkeley-blue/20"
+          className="w-full rounded-[10px] border border-slate-300 p-3 font-mono text-xs outline-none focus:border-berkeley-blue focus:ring-2 focus:ring-berkeley-blue/20"
         />
 
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-xs text-[#55687D]">
+          <span className="text-xs text-[#6E6E73]">
             Data stays in your browser and is never uploaded unless you export.
           </span>
           <button
             type="button"
             disabled={!csvText.trim()}
             onClick={handleAudit}
-            className="rounded-xl bg-berkeley-blue px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00417e] disabled:opacity-50"
+            className="rounded-[6px] bg-[#003262] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00417e] disabled:opacity-50"
           >
             Run Sheet Quality Audit
           </button>
@@ -907,25 +907,25 @@ export function CoordinatorPanel({
         {report && (
           <div className="mt-5 space-y-4 border-t border-slate-100 pt-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <div className="rounded-[8px] bg-[#FAFAFC] p-3 text-center">
                 <div className="text-lg font-bold text-slate-900">
                   {report.totalSingleRows}
                 </div>
-                <div className="text-xs text-[#55687D]">Single Rows</div>
+                <div className="text-xs text-[#6E6E73]">Single Rows</div>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <div className="rounded-[8px] bg-[#FAFAFC] p-3 text-center">
                 <div className="text-lg font-bold text-slate-900">
                   {report.totalCohortRows}
                 </div>
-                <div className="text-xs text-[#55687D]">Cohort Rows</div>
+                <div className="text-xs text-[#6E6E73]">Cohort Rows</div>
               </div>
-              <div className="rounded-xl bg-amber-50 p-3 text-center">
+              <div className="rounded-[8px] bg-[#FFFBEB] p-3 text-center">
                 <div className="text-lg font-bold text-amber-800">
                   {report.lookingRows}
                 </div>
                 <div className="text-xs text-amber-800">Still Looking</div>
               </div>
-              <div className="rounded-xl bg-rose-50 p-3 text-center">
+              <div className="rounded-[8px] bg-[#FEF2F2] p-3 text-center">
                 <div className="text-lg font-bold text-rose-800">
                   {report.findings.length}
                 </div>
@@ -964,7 +964,7 @@ export function CoordinatorPanel({
       </div>
 
       {/* Reference Schedule Table (Dynamic) */}
-      <div className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">
+      <div className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
         <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-[#003262]">
           <BookOpen className="h-4 w-4 text-[#FDB515]" />
           {programConfig.cycleLabel} Core Reference Schedule (All{" "}
@@ -973,7 +973,7 @@ export function CoordinatorPanel({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px] border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-[#D8E0EA] text-xs font-semibold uppercase text-[#55687D]">
+              <tr className="border-b border-[#E5E5EA] text-xs font-semibold uppercase text-[#6E6E73]">
                 <th className="py-2 pr-3">Section</th>
                 <th className="py-2 pr-3">Term</th>
                 <th className="py-2 pr-3">Days / Time</th>

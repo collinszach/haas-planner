@@ -4,9 +4,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Barlow Condensed"', '"Barlow"', "sans-serif"],
-        sans: ['"IBM Plex Sans"', "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        mono: ['"IBM Plex Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
+        display: ["-apple-system", "BlinkMacSystemFont", '"SF Pro Display"', '"SF Pro Text"', "system-ui", "sans-serif"],
+        sans: ["-apple-system", "BlinkMacSystemFont", '"SF Pro Text"', '"SF Pro Display"', "system-ui", "sans-serif"],
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
       },
       colors: {
         berkeley: {
@@ -18,14 +18,14 @@ export default {
           wellman: "#D9661F",
           bayfog: "#DDD5C7",
         },
-        canvas: "#F4F6F9",
+        canvas: "#F5F5F7",
         surface: "#FFFFFF",
-        subtle: "#F8FAFC",
-        hairline: "#D8E0EA",
+        subtle: "#FAFAFC",
+        hairline: "#E5E5EA",
         ink: {
-          primary: "#0F1E30",
-          secondary: "#3D4F63",
-          muted: "#55687D",
+          primary: "#1D1D1F",
+          secondary: "#48484A",
+          muted: "#6E6E73",
         },
       },
       transitionTimingFunction: {

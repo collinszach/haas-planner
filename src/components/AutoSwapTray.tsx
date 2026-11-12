@@ -9,7 +9,7 @@ import type {
   SwapMatch,
   SwapRequest,
 } from "@/types/swap";
-import { ArrowRightLeft, CheckCircle2, Sparkles, Users } from "lucide-react";
+import { ArrowRightLeft, CheckCircle2, Clock, Sparkles, Trash2, Users } from "lucide-react";
 
 interface AutoSwapTrayProps {
   profile: StudentProfile;
@@ -21,6 +21,7 @@ interface AutoSwapTrayProps {
   onSubmitSwap: (payload: SubmitSwapPayload) => Promise<void>;
   onMarkConfirmed?: (matchId: string) => Promise<void>;
   onConfirmExternalRequest?: (requestId: string, receivedKey?: string) => Promise<void>;
+  onCancelRequest?: (requestId: string) => Promise<void>;
   onOpenSwapWorkspace?: () => void;
 }
 
@@ -34,10 +35,12 @@ export function AutoSwapTray({
   onSubmitSwap,
   onMarkConfirmed,
   onConfirmExternalRequest,
+  onCancelRequest,
   onOpenSwapWorkspace,
 }: AutoSwapTrayProps) {
   const [submitting, setSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [selectedTargets, setSelectedTargets] = useState<Record<string, string>>({});
   const [modeOverride, setModeOverride] = useState<"single" | "cohort" | null>(null);
   const [personalNote, setPersonalNote] = useState("");
@@ -134,6 +137,19 @@ export function AutoSwapTray({
         ? "single"
         : preferredMode;
 
+  const activeWaitingRequests = useMemo(
+    () =>
+      existingRequests
+        .filter((r) => r.status === "active")
+        .slice()
+        .sort(
+          (a, b) =>
+            Date.parse(a.queuePriorityAt) - Date.parse(b.queuePriorityAt) ||
+            Date.parse(a.createdAt) - Date.parse(b.createdAt),
+        ),
+    [existingRequests],
+  );
+
   const hasPendingConfirmations =
     pendingMatches.length > 0 || pendingExternalRequests.length > 0;
 
@@ -141,7 +157,8 @@ export function AutoSwapTray({
     diag.legs.length === 0 &&
     !diag.cohortAlternative &&
     diag.conflictingElectivesOrBlocks.length === 0 &&
-    !hasPendingConfirmations
+    !hasPendingConfirmations &&
+    activeWaitingRequests.length === 0
   ) {
     return null;
   }
@@ -200,15 +217,15 @@ export function AutoSwapTray({
     hasUnsubmittedCourseSwap || hasUnsubmittedCohort || hasUnsubmittedConflict;
 
   return (
-    <div className="space-y-3">
+    <div className="divide-y divide-[#E5E5EA] border-b border-[#E5E5EA]">
       {hasPendingConfirmations && (
-        <section className="rounded-xl border border-[#B8CBE0] bg-[#E8EFF7]/70 p-4 sm:px-5">
-          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+        <section className="bg-[#ECFDF5] px-4 py-3 sm:px-5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="font-display text-lg font-bold text-[#003262]">
+              <h2 className="text-[13px] font-semibold text-[#065F46]">
                 Pending Registrar Confirmation
               </h2>
-              <p className="text-xs text-[#3D4F63]">
+              <p className="text-xs text-[#047857]">
                 Confirming an approved swap shifts your 30-min Core grid immediately and clears its
                 swap recommendation.
               </p>
@@ -217,14 +234,14 @@ export function AutoSwapTray({
               <button
                 type="button"
                 onClick={onOpenSwapWorkspace}
-                className="text-xs font-semibold text-[#003262] underline-offset-2 hover:underline"
+                className="text-xs font-medium text-[#003262] underline-offset-2 hover:underline"
               >
                 View Match Details
               </button>
             )}
           </div>
 
-          <div className="divide-y divide-[#D8E0EA] rounded-lg bg-white">
+          <div className="mt-2 divide-y divide-[#D1FAE5] border-t border-[#A7F3D0]">
             {pendingMatches.map((match) => {
               const iAmA = match.userAId === profile.id;
               const myGives = iAmA ? match.userAGivesKey : match.userBGivesKey;
@@ -232,20 +249,20 @@ export function AutoSwapTray({
               return (
                 <div
                   key={match.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs"
+                  className="flex flex-wrap items-center justify-between gap-3 py-2 text-xs"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-[#E8EFF7] px-2 py-1 font-semibold text-[#003262]">
+                    <span className="rounded-[5px] bg-[#ECFDF5] px-2 py-1 text-xs font-semibold text-[#065F46]">
                       {match.status === "submitted" ? "Submitted" : "Matched"}
                     </span>
-                    <span className="font-bold text-[#003262]">
+                    <span className="font-semibold text-[#1D1D1F]">
                       {match.course ?? "Cohort"}
                     </span>
-                    <span className="font-mono text-[#B42318] line-through">
+                    <span className="tabular-nums text-[#B42318] line-through">
                       {sectionLookup[myGives]?.displayName ?? formatSwapKey(myGives)}
                     </span>
-                    <span className="text-[#55687D]">→</span>
-                    <span className="font-mono font-semibold text-[#0F6B4E]">
+                    <span className="text-[#6E6E73]">→</span>
+                    <span className="tabular-nums font-semibold text-[#065F46]">
                       {sectionLookup[myGets]?.displayName ?? formatSwapKey(myGets)}
                     </span>
                   </div>
@@ -265,7 +282,7 @@ export function AutoSwapTray({
                           setConfirmingId(null);
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F6B4E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0B533C] disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#0F6B4E] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0B533C] disabled:opacity-60"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       {confirmingId === match.id ? "Shifting..." : "Confirm & Shift Schedule"}
@@ -280,20 +297,20 @@ export function AutoSwapTray({
               return (
                 <div
                   key={req.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs"
+                  className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 text-xs"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-[#E8EFF7] px-2 py-1 font-semibold text-[#003262]">
+                    <span className="rounded-[5px] bg-[#ECFDF5] px-2 py-1 text-xs font-semibold text-[#065F46]">
                       {req.status === "submitted" ? "Submitted" : "Matched"}
                     </span>
-                    <span className="font-bold text-[#003262]">
+                    <span className="font-semibold text-[#1D1D1F]">
                       {req.course ?? "Cohort"}
                     </span>
-                    <span className="font-mono text-[#B42318] line-through">
+                    <span className="tabular-nums text-[#B42318] line-through">
                       {sectionLookup[req.givingUpKey]?.displayName ?? formatSwapKey(req.givingUpKey)}
                     </span>
-                    <span className="text-[#55687D]">→</span>
-                    <span className="font-mono font-semibold text-[#0F6B4E]">
+                    <span className="text-[#6E6E73]">→</span>
+                    <span className="tabular-nums font-semibold text-[#065F46]">
                       {targetKey
                         ? sectionLookup[targetKey]?.displayName ?? formatSwapKey(targetKey)
                         : "—"}
@@ -309,7 +326,7 @@ export function AutoSwapTray({
                           onChange={(e) =>
                             setSelectedTargets((prev) => ({ ...prev, [req.id]: e.target.value }))
                           }
-                          className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30]"
+                          className="rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1 text-xs font-medium text-[#1D1D1F]"
                         >
                           {req.wantedKeys.map((k) => (
                             <option key={k} value={k}>
@@ -332,7 +349,7 @@ export function AutoSwapTray({
                             setConfirmingId(null);
                           }
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F6B4E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0B533C] disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#0F6B4E] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0B533C] disabled:opacity-60"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         {confirmingId === req.id ? "Shifting..." : "Confirm & Shift Schedule"}
@@ -346,31 +363,104 @@ export function AutoSwapTray({
         </section>
       )}
 
+      {activeWaitingRequests.length > 0 && (
+        <section className="bg-[#FAFAFC] px-4 py-2.5 sm:px-5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Clock className="h-3.5 w-3.5 text-[#0284C7]" />
+              <h2 className="text-[13px] font-semibold text-[#1D1D1F]">
+                Waiting for Swap Match ({activeWaitingRequests.length})
+              </h2>
+              <span className="hidden text-xs text-[#6E6E73] sm:inline">
+                Highlighted on timetable (dashed amber out → dashed blue #1 target)
+              </span>
+            </div>
+            {onOpenSwapWorkspace && (
+              <button
+                type="button"
+                onClick={onOpenSwapWorkspace}
+                className="text-xs font-medium text-[#003262] underline-offset-2 hover:underline"
+              >
+                Open Swaps Queue
+              </button>
+            )}
+          </div>
+
+          <div className="mt-2 divide-y divide-[#E5E5EA] border-t border-[#E5E5EA]">
+            {activeWaitingRequests.map((req) => (
+              <div
+                key={req.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-[5px] bg-[#FFFBEB] px-2 py-1 text-xs font-medium text-[#92400E]">
+                    Waiting
+                  </span>
+                  <span className="font-semibold text-[#1D1D1F]">
+                    {req.swapType === "cohort" ? "Whole Cohort" : req.course ?? "Core"}
+                  </span>
+                  <span className="tabular-nums text-[#B42318] line-through">
+                    {sectionLookup[req.givingUpKey]?.displayName ?? formatSwapKey(req.givingUpKey)}
+                  </span>
+                  <span className="text-[#6E6E73]">→</span>
+                  <span className="tabular-nums font-medium text-[#0369A1]">
+                    {req.wantedKeys
+                      .slice(0, 3)
+                      .map((k) => sectionLookup[k]?.displayName ?? formatSwapKey(k))
+                      .join(" OR ")}
+                  </span>
+                </div>
+
+                {onCancelRequest && (
+                  <button
+                    type="button"
+                    disabled={withdrawingId === req.id}
+                    onClick={async () => {
+                      setError(null);
+                      setWithdrawingId(req.id);
+                      try {
+                        await onCancelRequest(req.id);
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Failed to withdraw swap.");
+                      } finally {
+                        setWithdrawingId(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1 text-xs font-medium text-[#48484A] hover:border-[#F5C2BE] hover:text-[#B42318] disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    {withdrawingId === req.id ? "Withdrawing..." : "Withdraw"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {showAutoGenHeader && (
-        <section className="rounded-xl border border-[#F3D58A] bg-[#FEF5DC]/50 p-4 sm:p-5">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <section className="bg-[#FFFBEB] px-4 py-3 sm:px-5">
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-xl font-bold text-[#003262]">
-                  Recommended Core Swap
-                </h2>
-                <span className="rounded-md bg-white px-2.5 py-1 font-mono text-xs font-semibold text-[#8A5300] shadow-xs">
+                <h2 className="text-[13px] font-semibold text-[#1D1D1F]">
+                  Best Swap:{" "}
                   {!canSubmitSelected
                     ? "Resolve Overlap Manually"
                     : effectiveMode === "cohort"
                       ? modeOverride
-                        ? "Manual Choice: Full Cohort Swap"
-                        : "Best Option: Full Cohort Swap"
+                        ? "Manual Choice — Full Cohort"
+                        : "Full Cohort Swap"
                       : unsubmittedLegs.length > 1
                         ? modeOverride
-                          ? `Manual Choice: Paired Swap (${unsubmittedLegs.length} Legs)`
-                          : `Best Option: Paired Swap (${unsubmittedLegs.length} Legs)`
+                          ? `Manual Choice — Paired (${unsubmittedLegs.length} Legs)`
+                          : `Paired Swap (${unsubmittedLegs.length} Legs)`
                         : modeOverride
-                          ? "Manual Choice: Single Course Swap"
-                          : "Best Option: Single Course Swap"}
-                </span>
+                          ? `Manual Choice — Single (${unsubmittedLegs[0]?.course ?? "Course"})`
+                          : `Single Course (${unsubmittedLegs[0]?.course ?? "Course"})`}
+                </h2>
               </div>
-              <p className="mt-1 text-xs text-[#3D4F63]">
+              <p className="mt-0.5 text-xs text-[#6E6E73]">
                 {modeOverride
                   ? effectiveMode === "cohort"
                     ? "Swapping cohorts moves all 4 Spring Core sections together in a single registrar switch."
@@ -387,91 +477,79 @@ export function AutoSwapTray({
                 onClick={() =>
                   setModeOverride(effectiveMode === "cohort" ? "single" : "cohort")
                 }
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#003262] underline-offset-2 hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-xs font-medium text-[#003262] underline-offset-2 hover:underline disabled:opacity-50"
               >
                 <ArrowRightLeft className="h-3.5 w-3.5" />
                 {effectiveMode === "cohort"
-                  ? `Use ${unsubmittedLegs.length > 1 ? "Paired" : "Single"} Course Swap instead`
-                  : `Use Full Cohort Swap instead (${diag.cohortAlternative?.givingUpCohort} → ${diag.cohortAlternative?.wantedCohorts[0]})`}
+                  ? `Use ${unsubmittedLegs.length > 1 ? "Paired" : "Single"} Course Swap`
+                  : `Use Whole Cohort (${diag.cohortAlternative?.givingUpCohort} → ${diag.cohortAlternative?.wantedCohorts[0]})`}
               </button>
             )}
           </div>
 
           {error && (
-            <div className="mb-3 border-l-2 border-[#B42318] bg-[#FEECEB] px-3 py-2 text-xs font-medium text-[#B42318]">
+            <div className="mb-2 border-l-2 border-[#B42318] bg-[#FEECEB] px-3 py-1.5 text-xs font-medium text-[#B42318]">
               {error}
             </div>
           )}
 
           {effectiveMode === "cohort" && diag.cohortAlternative ? (
-            <div className="rounded-lg bg-white px-4 py-3 text-xs">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-[#003262]">Whole Cohort</span>
-                    <span className="font-mono text-[#B42318] line-through">
-                      {formatSwapKey(`Cohort-${diag.cohortAlternative.givingUpCohort}`)}
-                    </span>
-                    <span className="text-[#55687D]">→</span>
-                    <span className="font-mono font-semibold text-[#0F6B4E]">
-                      {diag.cohortAlternative.wantedCohorts
-                        .slice(0, 3)
-                        .map((c) => formatSwapKey(`Cohort-${c}`))
-                        .join(" OR ")}
-                    </span>
-                  </div>
-                  <div className="text-xs text-[#55687D]">
-                    Moves all 4 Spring Core sections ({diag.cohortAlternative.givingUpCohort}) into a conflict-free cohort with one 1:1 trade.
-                  </div>
-                </div>
-
-                <span className="inline-flex items-center gap-1 rounded-md bg-[#E8EFF7] px-2.5 py-1 font-mono text-xs font-semibold text-[#003262]">
-                  <Users className="h-3.5 w-3.5" />
-                  {cohortLiquidity} mirror{cohortLiquidity === 1 ? "" : "s"} waiting
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F3E8C8] pt-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-[#1D1D1F]">Whole Cohort</span>
+                <span className="tabular-nums text-[#B42318] line-through">
+                  {formatSwapKey(`Cohort-${diag.cohortAlternative.givingUpCohort}`)}
+                </span>
+                <span className="text-[#6E6E73]">→</span>
+                <span className="tabular-nums font-medium text-[#065F46]">
+                  {diag.cohortAlternative.wantedCohorts
+                    .slice(0, 3)
+                    .map((c) => formatSwapKey(`Cohort-${c}`))
+                    .join(" OR ")}
                 </span>
               </div>
+              <span className="inline-flex items-center gap-1 rounded-[5px] bg-white px-2 py-1 tabular-nums text-xs font-medium text-[#003262]">
+                <Users className="h-3 w-3" />
+                {cohortLiquidity} mirror{cohortLiquidity === 1 ? "" : "s"} waiting
+              </span>
             </div>
           ) : unsubmittedLegs.length > 0 ? (
-            <div className="divide-y divide-[#D8E0EA] rounded-lg bg-white">
+            <div className="divide-y divide-[#F3E8C8] border-t border-[#F3E8C8]">
               {unsubmittedLegs.map((leg) => (
                 <div
                   key={leg.course}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs"
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"
                 >
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-[#003262]">{leg.course}</span>
-                      <span className="font-mono text-[#B42318] line-through">
-                        {sectionLookup[leg.givingUpKey]?.displayName ??
-                          formatSwapKey(leg.givingUpKey)}
-                      </span>
-                      <span className="text-[#55687D]">→</span>
-                      <span className="font-mono font-semibold text-[#0F6B4E]">
-                        {leg.wantedKeys
-                          .slice(0, 3)
-                          .map((k) => sectionLookup[k]?.displayName ?? formatSwapKey(k))
-                          .join(" OR ")}
-                      </span>
-                    </div>
-                    <div className="text-xs text-[#55687D]">{leg.reason}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-[#1D1D1F]">{leg.course}</span>
+                    <span className="tabular-nums text-[#B42318] line-through">
+                      {sectionLookup[leg.givingUpKey]?.displayName ??
+                        formatSwapKey(leg.givingUpKey)}
+                    </span>
+                    <span className="text-[#6E6E73]">→</span>
+                    <span className="tabular-nums font-medium text-[#065F46]">
+                      {leg.wantedKeys
+                        .slice(0, 3)
+                        .map((k) => sectionLookup[k]?.displayName ?? formatSwapKey(k))
+                        .join(" OR ")}
+                    </span>
                   </div>
-
-                  <span className="inline-flex items-center gap-1 rounded-md bg-[#E8EFF7] px-2.5 py-1 font-mono text-xs font-semibold text-[#003262]">
-                    <Users className="h-3.5 w-3.5" />
+                  <span className="inline-flex items-center gap-1 rounded-[5px] bg-white px-2 py-1 tabular-nums text-xs font-medium text-[#003262]">
+                    <Users className="h-3 w-3" />
                     {leg.liquidityCount} mirror{leg.liquidityCount === 1 ? "" : "s"} waiting
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-lg bg-white px-4 py-3 text-xs text-[#B42318]">
+            <div className="border-t border-[#FECACA] pt-2 text-xs text-[#B42318]">
               No standalone course or full cohort switch eliminates every Spring collision cleanly.
               Remove one overlapping elective or adjust blocked 30-min intervals.
             </div>
           )}
 
           {canSubmitSelected && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
               <input
                 type="text"
                 value={personalNote}
@@ -479,13 +557,13 @@ export function AutoSwapTray({
                 onChange={(e) => setPersonalNote(e.target.value)}
                 aria-label="Optional private note for swap request"
                 placeholder="Optional private note (e.g. Freeing Wed PM for elective)"
-                className="min-w-[220px] flex-1 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-xs text-[#0F1E30] placeholder:text-[#64748B] focus:border-[#003262] focus:outline-none disabled:opacity-60"
+                className="min-w-[200px] flex-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] focus:border-[#003262] focus:outline-none disabled:opacity-60"
               />
               <button
                 type="button"
                 disabled={submitting || timelineEnded}
                 onClick={() => void handleSubmitBestSwap()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#003262] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#002145] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#003262] px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-[#002145] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5 text-[#FDB515]" />
                 {submitting
@@ -498,7 +576,7 @@ export function AutoSwapTray({
           )}
 
           {activeLiquidity > 0 && canSubmitSelected && (
-            <p className="mt-2 text-xs font-medium text-[#0F6B4E]">
+            <p className="mt-1.5 text-xs font-medium text-[#065F46]">
               Instant automatch ready: {activeLiquidity} waiting mirror partner request
               {activeLiquidity === 1 ? "" : "s"} in the blind FIFO queue.
             </p>

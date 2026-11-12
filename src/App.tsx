@@ -65,6 +65,7 @@ export function App() {
   const [authUserId, setAuthUserId] = useState<string>("");
   const [authEmail, setAuthEmail] = useState<string>("");
   const [authName, setAuthName] = useState<string>("");
+  const [authAvatarUrl, setAuthAvatarUrl] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [profile, setProfile] = useState<StudentProfile | null>(null);
@@ -75,6 +76,7 @@ export function App() {
   const [sections, setSections] = useState<SectionInfo[]>(DEFAULT_SECTIONS);
   const [swapWindows, setSwapWindows] = useState<SwapWindow[]>(DEFAULT_SWAP_WINDOWS);
   const [programConfig, setProgramConfig] = useState<ProgramConfig>(DEFAULT_CONFIG);
+  const [courseDemand, setCourseDemand] = useState<Record<string, number>>({});
   const [demoProfiles, setDemoProfiles] = useState<StudentProfile[]>(() =>
     getSandboxProfiles(),
   );
@@ -88,20 +90,31 @@ export function App() {
   modeRef.current = mode;
   const activeUidRef = useRef<string | null>(null);
 
-  const loadDashboard = useCallback(async (runMode: "live" | "sandbox", uid: string) => {
-    const data = await fetchDashboardData(runMode, uid);
-    setProfile(data.profile);
-    setRequests(data.requests);
-    setMatches(data.matches);
-    setMarketPulse(data.marketPulse);
-    setQueue(data.queue);
-    setSections(data.sections);
-    setSwapWindows(data.swapWindows);
-    setProgramConfig(data.programConfig);
-    if (runMode === "sandbox") {
-      setDemoProfiles(getSandboxProfiles());
-    }
-  }, []);
+  const loadDashboard = useCallback(
+    async (runMode: "live" | "sandbox", uid: string, fallbackAvatar?: string | null) => {
+      const data = await fetchDashboardData(runMode, uid);
+      let loadedProfile = data.profile;
+      if (loadedProfile && fallbackAvatar && loadedProfile.avatarUrl !== fallbackAvatar) {
+        loadedProfile = { ...loadedProfile, avatarUrl: fallbackAvatar };
+        if (runMode === "live") {
+          void saveStudentProfile("live", loadedProfile).catch(() => {});
+        }
+      }
+      setProfile(loadedProfile);
+      setRequests(data.requests);
+      setMatches(data.matches);
+      setMarketPulse(data.marketPulse);
+      setQueue(data.queue);
+      setSections(data.sections);
+      setSwapWindows(data.swapWindows);
+      setProgramConfig(data.programConfig);
+      setCourseDemand(data.courseDemand);
+      if (runMode === "sandbox") {
+        setDemoProfiles(getSandboxProfiles());
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -146,17 +159,23 @@ export function App() {
         return;
       }
 
+      const metaAvatar =
+        (session.user.user_metadata?.avatar_url as string | undefined) ??
+        (session.user.user_metadata?.picture as string | undefined) ??
+        null;
+
       setAuthError(null);
       setAuthUserId(session.user.id);
       setAuthEmail(email);
       setAuthName((session.user.user_metadata?.full_name as string | undefined) ?? "");
+      setAuthAvatarUrl(metaAvatar);
       setMode("live");
 
       if (skipIfSameUser && activeUidRef.current === session.user.id) {
         return;
       }
       activeUidRef.current = session.user.id;
-      await loadDashboard("live", session.user.id);
+      await loadDashboard("live", session.user.id, metaAvatar);
     }
 
     async function init() {
@@ -260,9 +279,13 @@ export function App() {
 
   const handleSaveProfile = async (nextProfile: StudentProfile) => {
     const runMode = mode === "live" ? "live" : "sandbox";
-    setProfile(nextProfile);
-    await saveStudentProfile(runMode, nextProfile);
-    await loadDashboard(runMode, nextProfile.id);
+    const enriched: StudentProfile = {
+      ...nextProfile,
+      avatarUrl: nextProfile.avatarUrl ?? authAvatarUrl ?? null,
+    };
+    setProfile(enriched);
+    await saveStudentProfile(runMode, enriched);
+    await loadDashboard(runMode, enriched.id, authAvatarUrl);
     setEditingProfile(false);
     showToast("Profile and planner baseline saved.");
   };
@@ -287,6 +310,8 @@ export function App() {
     };
     setProfile(updated);
     await saveStudentProfile(runMode, updated);
+    const refreshed = await fetchDashboardData(runMode, updated.id);
+    setCourseDemand(refreshed.courseDemand);
 
     const swapDiag =
       record.semesterId === "Y1_Spring"
@@ -319,6 +344,8 @@ export function App() {
     };
     setProfile(updated);
     await saveStudentProfile(runMode, updated);
+    const refreshed = await fetchDashboardData(runMode, updated.id);
+    setCourseDemand(refreshed.courseDemand);
     showToast("Course removed from plan.");
   };
 
@@ -485,7 +512,7 @@ export function App() {
     activeTab === "coordinator" && !isCoordinator ? "planner" : activeTab;
 
   return (
-    <div className="min-h-screen bg-[#F4F6F9] pb-16 text-[#0F1E30]">
+    <div className="min-h-screen bg-[#F5F5F7] pb-10 text-[#1D1D1F]">
       <Navbar
         mode={mode}
         activeTab={currentTab}
@@ -507,17 +534,17 @@ export function App() {
       {toast && (
         <div
           role="status"
-          className="border-b border-[#002145] bg-[#002145] text-white"
+          className="border-b border-[#E5E5EA] bg-[#1D1D1F] text-white"
         >
-          <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-2 text-xs font-medium sm:px-6">
+          <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-2 text-xs font-medium sm:px-5">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#FDB515]" />
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#FDB515]" />
               <span>{toast}</span>
             </div>
             <button
               type="button"
               onClick={() => setToast(null)}
-              className="shrink-0 rounded p-1 text-[#DCE7F3] hover:bg-white/10 hover:text-white"
+              className="shrink-0 rounded p-1 text-[#A1A1A6] hover:bg-white/10 hover:text-white"
               aria-label="Dismiss notification"
             >
               <X className="h-3.5 w-3.5" />
@@ -526,7 +553,7 @@ export function App() {
         </div>
       )}
 
-      <main className="mx-auto max-w-[1440px] px-4 pt-5 sm:px-6">
+      <main className="mx-auto max-w-[1440px] px-3 pt-4 sm:px-5">
         {needsOnboarding ? (
           <ProfileSetup
             initialProfile={profile}
@@ -543,11 +570,11 @@ export function App() {
             }
           />
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-4">
             {readyMatches.length > 0 && currentTab !== "swaps" && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#B7E4D1] bg-[#E6F5EE] px-4 py-3 text-xs text-[#0F6B4E]">
-                <div className="flex items-center gap-2 font-semibold">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#B7E4D1] bg-[#ECFDF5] px-4 py-2.5 text-xs text-[#065F46]">
+                <div className="flex items-center gap-2 font-medium">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0F6B4E]" />
                   <span>
                     {readyMatches.length} blind swap {readyMatches.length === 1 ? "match" : "matches"}{" "}
                     ready. Open Swaps to copy form details and confirm schedule update.
@@ -556,39 +583,23 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("swaps")}
-                  className="rounded-lg bg-[#0F6B4E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0b523b]"
+                  className="rounded-[6px] bg-[#0F6B4E] px-3 py-1 text-xs font-medium text-white transition hover:bg-[#0B533C]"
                 >
                   View Match Details
                 </button>
               </div>
             )}
 
-            {/* Workspace Title + Semester Switcher & Degree Strip */}
+            {/* Native macOS Split-Pane Planner Window */}
             {currentTab === "planner" && audit && (
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#D8E0EA] pb-4">
-                  <div>
-                    <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
-                      {SEMESTER_META.find((s) => s.id === activeSemester)?.label ?? "Semester Planner"}
-                    </h1>
-                    <p className="mt-0.5 text-xs text-[#55687D]">
-                      <strong className="text-[#0F1E30]">{profile.homeCohort}</strong> Cohort ·{" "}
-                      <strong className="font-mono text-[#003262]">
-                        {audit.validMbaUnits}/{audit.mbaUnitTarget}
-                      </strong>{" "}
-                      MBA units · Experiential:{" "}
-                      <strong
-                        className={
-                          audit.experientialSatisfied ? "text-[#0F6B4E]" : "text-[#8A5300]"
-                        }
-                      >
-                        {audit.experientialSatisfied ? "1/1 Satisfied" : "0/1 Needed"}
-                      </strong>
-                    </p>
-                  </div>
-
-                  {/* 4-Semester Switcher */}
-                  <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Select semester">
+              <div className="overflow-hidden rounded-[10px] border border-[#E5E5EA] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                {/* Flush Sub-Header Bar with Underline Semester Tabs */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E5EA] bg-white px-4 sm:px-5">
+                  <div
+                    className="flex flex-wrap items-center gap-5"
+                    role="tablist"
+                    aria-label="Select semester"
+                  >
                     {SEMESTER_META.map((sem) => {
                       const summary = audit.bySemester.find((x) => x.semesterId === sem.id);
                       const isActive = activeSemester === sem.id;
@@ -599,63 +610,96 @@ export function App() {
                           role="tab"
                           aria-selected={isActive}
                           onClick={() => setActiveSemester(sem.id)}
-                          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                          className={`inline-flex items-center gap-1.5 border-b-2 py-2.5 text-[13px] transition ${
                             isActive
-                              ? "border-[#003262] bg-[#003262] text-white"
-                              : "border-[#D8E0EA] bg-white text-[#3D4F63] hover:bg-[#F8FAFC]"
+                              ? "border-[#003262] font-semibold text-[#003262]"
+                              : "border-transparent font-medium text-[#6E6E73] hover:text-[#1D1D1F]"
                           }`}
                         >
                           <span>{sem.shortLabel}</span>
                           <span
-                            className={`rounded px-1.5 py-0.5 font-mono text-xs ${
-                              isActive
-                                ? "bg-[#002145] text-[#FDB515]"
-                                : "bg-[#F8FAFC] text-[#55687D]"
+                            className={`tabular-nums text-xs ${
+                              isActive ? "text-[#003262]" : "text-[#6E6E73]"
                             }`}
                           >
-                            {summary?.totalUnits ?? 0}u
+                            · {summary?.totalUnits ?? 0}u
                           </span>
                         </button>
                       );
                     })}
                   </div>
+
+                  <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs text-[#6E6E73]">
+                    <span>
+                      <strong className="font-medium text-[#1D1D1F]">{profile.homeCohort}</strong> Cohort
+                    </span>
+                    <span>·</span>
+                    <span>
+                      MBA{" "}
+                      <strong className="font-medium text-[#1D1D1F]">
+                        {audit.validMbaUnits}/{audit.mbaUnitTarget}u
+                      </strong>
+                    </span>
+                    <span>·</span>
+                    <span>
+                      Experiential:{" "}
+                      <strong
+                        className={
+                          audit.experientialSatisfied ? "font-medium text-[#0F6B4E]" : "font-medium text-[#92400E]"
+                        }
+                      >
+                        {audit.experientialSatisfied ? "1/1 Satisfied" : "0/1 Needed"}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
 
-                {(activeSemester === "Y1_Spring" ||
-                  (autoSwapDiag?.legs.length ?? 0) > 0 ||
-                  Boolean(autoSwapDiag?.cohortAlternative) ||
-                  matches.some((m) => m.status === "matched" || m.status === "submitted") ||
-                  requests.some((r) => r.status === "matched" || r.status === "submitted")) && (
-                  <AutoSwapTray
-                    profile={profile}
-                    sections={sections}
-                    marketPulse={marketPulse}
-                    existingRequests={requests}
-                    matches={matches}
-                    timelineEnded={timelineEnded}
-                    onSubmitSwap={handleSubmitSwap}
-                    onMarkConfirmed={handleMarkConfirmed}
-                    onConfirmExternalRequest={handleConfirmExternalRequest}
-                    onOpenSwapWorkspace={() => setActiveTab("swaps")}
-                  />
-                )}
+                {/* Flush 2-Column Split Workbench: Left Calendar + Right Course Inspector */}
+                <div className="grid lg:grid-cols-[1.42fr_1fr] lg:divide-x lg:divide-[#E5E5EA]">
+                  <div className="flex min-w-0 flex-col">
+                    {(activeSemester === "Y1_Spring" ||
+                      (autoSwapDiag?.legs.length ?? 0) > 0 ||
+                      Boolean(autoSwapDiag?.cohortAlternative) ||
+                      matches.some((m) => m.status === "matched" || m.status === "submitted") ||
+                      requests.some(
+                        (r) =>
+                          r.status === "active" ||
+                          r.status === "matched" ||
+                          r.status === "submitted",
+                      )) && (
+                      <AutoSwapTray
+                        profile={profile}
+                        sections={sections}
+                        marketPulse={marketPulse}
+                        existingRequests={requests}
+                        matches={matches}
+                        timelineEnded={timelineEnded}
+                        onSubmitSwap={handleSubmitSwap}
+                        onMarkConfirmed={handleMarkConfirmed}
+                        onConfirmExternalRequest={handleConfirmExternalRequest}
+                        onCancelRequest={handleCancelRequest}
+                        onOpenSwapWorkspace={() => setActiveTab("swaps")}
+                      />
+                    )}
 
-                <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
-                  <div className="min-w-0 lg:col-span-7">
                     <HalfHourGrid
                       semesterId={activeSemester}
                       profile={profile}
                       sections={sections}
+                      requests={requests}
+                      matches={matches}
                       onSaveBlockedSlots={handleSaveBlockedSlots}
                       onRemoveCourse={handleRemovePlannedCourse}
                     />
                   </div>
-                  <div className="min-w-0 lg:col-span-5">
+
+                  <div className="min-w-0 border-t border-[#E5E5EA] bg-white lg:border-t-0">
                     <CourseRecommender
                       semesterId={activeSemester}
                       profile={profile}
                       sections={sections}
                       marketPulse={marketPulse}
+                      courseDemand={courseDemand}
                       onAddCourse={handleAddPlannedCourse}
                       onRemoveCourse={handleRemovePlannedCourse}
                       onUpdatePlannedBid={handleUpdatePlannedBid}
@@ -666,13 +710,13 @@ export function App() {
             )}
 
             {currentTab === "swaps" && (
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#D8E0EA] pb-3">
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#E5E5EA] pb-3">
                   <div>
-                    <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
+                    <h1 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F]">
                       Core Swaps &amp; Blind FIFO Queue
                     </h1>
-                    <p className="mt-0.5 text-xs text-[#55687D]">
+                    <p className="mt-0.5 text-xs text-[#6E6E73]">
                       Partner match details, active queue entries, registrar confirmation status, and
                       real-time pool liquidity. New swaps submit automatically from the Planner.
                     </p>
@@ -683,7 +727,7 @@ export function App() {
                       setActiveSemester("Y1_Spring");
                       setActiveTab("planner");
                     }}
-                    className="rounded-lg border border-[#003262] bg-white px-3 py-1.5 text-xs font-semibold text-[#003262] transition hover:bg-[#E8EFF7]"
+                    className="rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-1.5 text-xs font-medium text-[#1D1D1F] transition hover:bg-[#F5F5F7]"
                   >
                     Open Planner to Submit Swaps
                   </button>
@@ -705,12 +749,12 @@ export function App() {
             )}
 
             {currentTab === "audit" && (
-              <div className="space-y-5">
-                <div className="border-b border-[#D8E0EA] pb-3">
-                  <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
+              <div className="space-y-4">
+                <div className="border-b border-[#E5E5EA] pb-3">
+                  <h1 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F]">
                     4-Semester Degree Audit
                   </h1>
-                  <p className="mt-0.5 text-xs text-[#55687D]">
+                  <p className="mt-0.5 text-xs text-[#6E6E73]">
                     Track MBA Core, Electives, Non-Haas Graduate Credit Cap, and Certificates across
                     all four semesters.
                   </p>
@@ -728,12 +772,12 @@ export function App() {
             )}
 
             {currentTab === "coordinator" && isCoordinator && (
-              <div className="space-y-5">
-                <div className="border-b border-[#D8E0EA] pb-3">
-                  <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
+              <div className="space-y-4">
+                <div className="border-b border-[#E5E5EA] pb-3">
+                  <h1 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F]">
                     Program Coordinator &amp; Cycle Tools
                   </h1>
-                  <p className="mt-0.5 text-xs text-[#55687D]">
+                  <p className="mt-0.5 text-xs text-[#6E6E73]">
                     Manage swap windows, yearly cohort rollover, Core time slots, and legacy Google
                     Sheet CSV audits.
                   </p>

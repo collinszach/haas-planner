@@ -27,6 +27,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Users,
 } from "lucide-react";
 
 interface CourseRecommenderProps {
@@ -34,13 +35,14 @@ interface CourseRecommenderProps {
   profile: StudentProfile;
   sections?: SectionInfo[];
   marketPulse: MarketPulseItem[];
+  courseDemand?: Record<string, number>;
   onAddCourse: (record: PlannedCourseRecord) => Promise<void>;
   onRemoveCourse: (instanceId: string) => Promise<void>;
   onUpdatePlannedBid?: (courseId: string, points: number) => Promise<void>;
 }
 
 type RecommenderTab = "fits" | "swap_unlocks" | "olr932" | "all" | "berkeley";
-type SortOption = "score" | "worth" | "instructor" | "ease" | "bid";
+type SortOption = "score" | "worth" | "demand" | "instructor" | "ease" | "bid";
 type CategoryFilter = "ALL" | "EL" | "BT" | CertificateCode;
 
 const BID_RANK: Record<string, number> = {
@@ -62,6 +64,7 @@ export function CourseRecommender({
   profile,
   sections = [],
   marketPulse,
+  courseDemand = {},
   onAddCourse,
   onRemoveCourse,
   onUpdatePlannedBid,
@@ -182,6 +185,12 @@ export function CourseRecommender({
       if (sortBy === "worth") {
         return (b.course.evaluation?.courseWorth ?? -1) - (a.course.evaluation?.courseWorth ?? -1);
       }
+      if (sortBy === "demand") {
+        const pa = courseDemand[a.course.id] ?? courseDemand[a.course.code] ?? 0;
+        const pb = courseDemand[b.course.id] ?? courseDemand[b.course.code] ?? 0;
+        if (pb !== pa) return pb - pa;
+        return b.score - a.score;
+      }
       if (sortBy === "instructor") {
         return (
           (b.course.evaluation?.instructorEffectiveness ?? -1) -
@@ -199,7 +208,7 @@ export function CourseRecommender({
       }
       return b.score - a.score;
     });
-  }, [allRecommendations, tab, query, categoryFilter, sortBy]);
+  }, [allRecommendations, tab, query, categoryFilter, sortBy, courseDemand]);
 
   const handleToggleHaasCourse = async (rec: CourseRecommendation) => {
     const existing = plannedByCourseId.get(rec.course.id);
@@ -252,27 +261,27 @@ export function CourseRecommender({
   };
 
   return (
-    <section className="flex flex-col rounded-xl border border-[#D8E0EA] bg-white">
-      <div className="border-b border-[#D8E0EA] p-4 sm:px-5">
+    <section className="flex flex-col bg-white">
+      <div className="border-b border-[#E5E5EA] px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-display text-xl font-bold text-[#003262]">
-            Course Catalog &amp; Electives
+          <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
+            Course Catalog
           </h2>
-          <span className="font-mono text-xs font-semibold text-[#55687D]">
+          <span className="tabular-nums text-xs font-medium text-[#6E6E73]">
             {audit.validMbaUnits}/{audit.mbaUnitTarget} MBA u · {audit.nonHaasUnits}/
             {audit.nonHaasCap} Non-Haas
           </span>
         </div>
 
         {/* Sub-tabs */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
           <button
             type="button"
             onClick={() => setTab("fits")}
-            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
               tab === "fits"
-                ? "bg-[#003262] text-white"
-                : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
+                ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
             }`}
           >
             Fits Timetable ({counts.fits})
@@ -283,10 +292,10 @@ export function CourseRecommender({
               <button
                 type="button"
                 onClick={() => setTab("swap_unlocks")}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
                   tab === "swap_unlocks"
-                    ? "bg-[#003262] text-white"
-                    : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
+                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
                 }`}
               >
                 Swap Unlocks ({counts.swap})
@@ -294,10 +303,10 @@ export function CourseRecommender({
               <button
                 type="button"
                 onClick={() => setTab("olr932")}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
                   tab === "olr932"
-                    ? "bg-[#003262] text-white"
-                    : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
+                    ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                    : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
                 }`}
               >
                 OLR Bidding 932 ({counts.olr932})
@@ -308,10 +317,10 @@ export function CourseRecommender({
           <button
             type="button"
             onClick={() => setTab("all")}
-            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
               tab === "all"
-                ? "bg-[#003262] text-white"
-                : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
+                ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
             }`}
           >
             All ({counts.total})
@@ -323,10 +332,10 @@ export function CourseRecommender({
               setTab("berkeley");
               if (btResults.length === 0) void handleSearchBerkeley();
             }}
-            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-[6px] border px-2.5 py-1 text-xs font-medium transition ${
               tab === "berkeley"
-                ? "bg-[#003262] text-white"
-                : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
+                ? "border-[#1D1D1F] bg-[#1D1D1F] text-white"
+                : "border-[#E5E5EA] bg-white text-[#48484A] hover:bg-[#F5F5F7]"
             }`}
           >
             Non-MBA
@@ -335,20 +344,20 @@ export function CourseRecommender({
 
         {/* OLR Round 932 Spring 2027 Budget & Units Strip */}
         {semesterId === "Y1_Spring" && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#F2F2F7] pt-2 text-xs text-[#6E6E73]">
+            <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1">
               <span
-                className={`font-mono font-semibold ${
-                  springBudget.overBidBudget ? "text-[#B42318]" : "text-[#0F1E30]"
-                }`}
+                className={
+                  springBudget.overBidBudget ? "font-semibold text-[#B42318]" : "font-medium text-[#1D1D1F]"
+                }
               >
                 Bid Pts: {springBudget.bidExpended}/{OLR_SPRING_2027_RULES.maxBidPoints} (Rem{" "}
                 {springBudget.bidRemaining})
               </span>
               <span
-                className={`font-mono font-semibold ${
-                  springBudget.overUnitCap ? "text-[#B42318]" : "text-[#0F1E30]"
-                }`}
+                className={
+                  springBudget.overUnitCap ? "font-semibold text-[#B42318]" : "font-medium text-[#1D1D1F]"
+                }
               >
                 Spring Units: {springBudget.totalUnits}/{OLR_SPRING_2027_RULES.maxSpringUnits}u (
                 {springBudget.remainingUnits}u left)
@@ -358,7 +367,7 @@ export function CourseRecommender({
               href={OLR_SPRING_2027_RULES.olrUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 font-semibold text-[#003262] hover:underline"
+              className="inline-flex items-center gap-1 font-medium text-[#003262] hover:underline"
             >
               OLR Portal (932)
               <ExternalLink className="h-3 w-3" />
@@ -366,17 +375,17 @@ export function CourseRecommender({
           </div>
         )}
 
-        {/* Single Clean Filter Row */}
+        {/* Search + Filter Bar */}
         {tab !== "berkeley" ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[150px] flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#55687D]" />
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[140px] flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
               <input
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search code, title, prof..."
-                className="w-full rounded-lg border border-[#CBD5E1] py-1.5 pl-8 pr-3 text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
+                className="h-7 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
               />
             </div>
 
@@ -384,7 +393,7 @@ export function CourseRecommender({
               aria-label="Filter courses by requirement"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-              className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30] outline-none focus:border-[#003262]"
+              className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
             >
               <option value="ALL">All Types</option>
               <option value="EL">Experiential (1 req)</option>
@@ -400,9 +409,10 @@ export function CourseRecommender({
               aria-label="Sort recommended courses"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30] outline-none focus:border-[#003262]"
+              className="h-7 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] outline-none focus:border-[#003262]"
             >
               <option value="score">Best Fit</option>
+              <option value="demand">Most Planned</option>
               <option value="worth">Highest Worth</option>
               <option value="instructor">Top Instructor</option>
               <option value="ease">Lightest Load</option>
@@ -410,21 +420,21 @@ export function CourseRecommender({
             </select>
           </div>
         ) : (
-          <form onSubmit={(e) => void handleSearchBerkeley(e)} className="mt-3 flex gap-2">
+          <form onSubmit={(e) => void handleSearchBerkeley(e)} className="mt-2.5 flex gap-2">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#55687D]" />
+              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
               <input
                 type="text"
                 value={btQuery}
                 onChange={(e) => setBtQuery(e.target.value)}
                 placeholder="Search campus depts (e.g. INFO, COMPSCI, LAW 276, ENVECON, PUBPOL)"
-                className="w-full rounded-lg border border-[#CBD5E1] py-1.5 pl-8 pr-3 text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
+                className="h-7 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
               />
             </div>
             <button
               type="submit"
               disabled={btLoading}
-              className="rounded-lg bg-[#003262] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#002145] disabled:opacity-60"
+              className="h-7 rounded-[6px] bg-[#003262] px-3 text-xs font-medium text-white hover:bg-[#002145] disabled:opacity-60"
             >
               {btLoading ? "Searching..." : "Search Campus"}
             </button>
@@ -432,53 +442,57 @@ export function CourseRecommender({
         )}
       </div>
 
-      {/* Scrollable Catalog List (prevents first-viewport overflow) */}
-      <div className="max-h-[545px] divide-y divide-[#E4EBF2] overflow-y-auto">
+      {/* Scrollable Catalog List */}
+      <div className="max-h-[620px] divide-y divide-[#F2F2F7] overflow-y-auto">
         {tab !== "berkeley" ? (
           filtered.length === 0 ? (
-            <div className="p-8 text-center text-xs text-[#55687D]">
+            <div className="p-8 text-center text-xs text-[#6E6E73]">
               No courses match these filters in this view. Try clearing filters or switching to
-              “All Haas”.
+              “All”.
             </div>
           ) : (
             filtered.slice(0, 60).map((rec) => {
               const { course } = rec;
               const isAdded = plannedByCourseId.has(course.id);
               const bid = BID_TEXT[course.bidRisk] ?? BID_TEXT.low;
+              const plannedCount = Math.max(
+                courseDemand[course.id] ?? 0,
+                courseDemand[course.code] ?? 0,
+              );
 
               return (
-                <article key={course.id} className="px-4 py-3 hover:bg-[#F8FAFC] sm:px-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
+                <article key={course.id} className="px-4 py-3 transition hover:bg-[#FAFAFC] sm:px-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2.5">
                     <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-baseline gap-2">
-                        <span className="font-mono text-xs font-bold text-[#003262]">
+                      <div className="flex flex-wrap items-baseline gap-1.5">
+                        <span className="tabular-nums text-xs font-semibold text-[#003262]">
                           {course.code}
                         </span>
-                        <h3 className="font-sans text-sm font-semibold text-[#0F1E30]">
+                        <h3 className="text-[13px] font-semibold leading-snug text-[#1D1D1F]">
                           {course.name}
                         </h3>
-                        <span className="font-mono text-xs text-[#55687D]">
-                          {course.units}u
+                        <span className="tabular-nums text-xs text-[#6E6E73]">
+                          · {course.units}u
                         </span>
                       </div>
 
-                      <div className="text-xs text-[#3D4F63]">
-                        <strong className="font-medium text-[#0F1E30]">
+                      <div className="tabular-nums text-xs text-[#6E6E73]">
+                        <span className="font-medium text-[#1D1D1F]">
                           {course.instructors}
-                        </strong>{" "}
+                        </span>{" "}
                         · {course.dayLabel} {course.timeLabel} · {course.part}
                         {course.meetings[0]?.room ? ` · ${course.meetings[0].room}` : ""}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#55687D]">
+                      <div className="tabular-nums flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#6E6E73]">
                         {course.evaluation?.courseWorth != null && (
                           <span>
-                            Worth <strong className="text-[#0F1E30]">{course.evaluation.courseWorth}/7</strong>
+                            Worth <strong className="font-medium text-[#1D1D1F]">{course.evaluation.courseWorth}/7</strong>
                           </span>
                         )}
                         {course.evaluation?.instructorEffectiveness != null && (
                           <span>
-                            Prof <strong className="text-[#0F1E30]">{course.evaluation.instructorEffectiveness}/7</strong>
+                            Prof <strong className="font-medium text-[#1D1D1F]">{course.evaluation.instructorEffectiveness}/7</strong>
                           </span>
                         )}
                         <span>
@@ -487,19 +501,27 @@ export function CourseRecommender({
                         <span className={`font-medium ${bid.color}`}>{bid.label}</span>
                         {course.olrAvailable != null && course.olrCapacity != null && (
                           <span
-                            className={`font-mono font-semibold ${
+                            className={`font-medium ${
                               course.olrAvailable === 0
                                 ? "text-[#B42318]"
                                 : course.olrAvailable <= 10
-                                  ? "text-[#8A5300]"
-                                  : "text-[#0F6B4E]"
+                                  ? "text-[#92400E]"
+                                  : "text-[#065F46]"
                             }`}
                           >
                             {course.olrAvailable === 0
                               ? `Full (0/${course.olrCapacity})`
-                              : `Seats: ${course.olrAvailable}/${course.olrCapacity}`}
+                              : `${course.olrAvailable}/${course.olrCapacity} OLR`}
                           </span>
                         )}
+                        <span
+                          className={`inline-flex items-center gap-1 font-medium ${
+                            plannedCount > 0 ? "text-[#003262]" : "text-[#6E6E73]"
+                          }`}
+                        >
+                          <Users className="h-3 w-3 shrink-0" />
+                          {plannedCount} planned here
+                        </span>
                         {course.courseEvalUrl && (
                           <a
                             href={course.courseEvalUrl}
@@ -515,22 +537,22 @@ export function CourseRecommender({
 
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
                         {rec.fitStatus === "fits" ? (
-                          <span className="rounded bg-[#E6F5EE] px-2 py-1 text-xs font-semibold text-[#0F6B4E]">
+                          <span className="rounded-[5px] bg-[#ECFDF5] px-2 py-0.5 text-xs font-medium text-[#065F46]">
                             Fits Grid
                           </span>
                         ) : rec.fitStatus === "swap_unlocks" ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-[#FEF5DC] px-2 py-1 text-xs font-semibold text-[#8A5300]">
+                          <span className="inline-flex items-center gap-1 rounded-[5px] bg-[#FFFBEB] px-2 py-0.5 text-xs font-medium text-[#92400E]">
                             <ArrowRightLeft className="h-3 w-3" />
                             Swap {rec.requiredSwaps.map((s) => s.course).join("+")}
                           </span>
                         ) : (
-                          <span className="rounded bg-[#FEECEB] px-2 py-1 text-xs font-semibold text-[#B42318]">
+                          <span className="rounded-[5px] bg-[#FEF2F2] px-2 py-0.5 text-xs font-medium text-[#991B1B]">
                             {rec.conflictReasons[0] ?? "Time Conflict"}
                           </span>
                         )}
 
                         {rec.fills.length > 0 && (
-                          <span className="text-xs text-[#55687D]">
+                          <span className="text-xs text-[#6E6E73]">
                             {rec.fills.join(" · ")}
                           </span>
                         )}
@@ -542,16 +564,16 @@ export function CourseRecommender({
                         type="button"
                         disabled={busyId === course.id}
                         onClick={() => void handleToggleHaasCourse(rec)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                        className={`inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-xs font-medium transition ${
                           isAdded
-                            ? "border border-[#B7E4D1] bg-[#E6F5EE] text-[#0F6B4E] hover:bg-[#FEECEB] hover:border-[#F5C2BE] hover:text-[#B42318]"
-                            : "bg-[#003262] text-white hover:bg-[#002145]"
+                            ? "border border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46] hover:border-[#FECACA] hover:bg-[#FEF2F2] hover:text-[#991B1B]"
+                            : "border border-[#D1D1D6] bg-white text-[#1D1D1F] hover:border-[#003262] hover:bg-[#003262] hover:text-white"
                         }`}
                       >
                         {isAdded ? (
                           <>
                             <Check className="h-3.5 w-3.5" />
-                            Added
+                            Planned
                           </>
                         ) : (
                           <>
@@ -565,7 +587,7 @@ export function CourseRecommender({
                         semesterId === "Y1_Spring" &&
                         course.olrRoundId === OLR_SPRING_2027_RULES.roundId &&
                         onUpdatePlannedBid && (
-                          <label className="flex items-center gap-1.5 text-xs text-[#3D4F63]">
+                          <label className="flex items-center gap-1 text-xs text-[#6E6E73]">
                             <span>Bid</span>
                             <input
                               type="number"
@@ -581,9 +603,9 @@ export function CourseRecommender({
                                   Number.isFinite(raw) ? raw : 0,
                                 );
                               }}
-                              className="w-16 rounded-md border border-[#CBD5E1] bg-white px-2 py-1 text-right font-mono text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
+                              className="tabular-nums w-14 rounded-[5px] border border-[#D1D1D6] bg-white px-1.5 py-0.5 text-right text-xs text-[#1D1D1F] outline-none focus:border-[#003262]"
                             />
-                            <span className="font-mono text-xs text-[#55687D]">pts</span>
+                            <span className="text-xs text-[#6E6E73]">pts</span>
                           </label>
                         )}
                     </div>
@@ -595,72 +617,81 @@ export function CourseRecommender({
         ) : (
           <div>
             {btSourceMode && (
-              <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2 text-xs text-[#55687D]">
+              <div className="flex items-center justify-between border-b border-[#F2F2F7] bg-[#FAFAFC] px-4 py-2 text-xs text-[#6E6E73]">
                 <span>
                   Source:{" "}
-                  <strong className="text-[#0F1E30]">
+                  <strong className="font-medium text-[#1D1D1F]">
                     {btSourceMode === "live"
                       ? "Berkeleytime Live GraphQL"
                       : "Curated Cross-Campus Reference"}
                   </strong>
                 </span>
-                <span>Counts up to {audit.nonHaasCap} Non-Haas units toward FTMBA 51u</span>
+                <span>Up to {audit.nonHaasCap} Non-Haas units</span>
               </div>
             )}
             {btError && (
-              <div className="bg-[#FEF5DC] px-4 py-2 text-xs text-[#8A5300]">{btError}</div>
+              <div className="bg-[#FFFBEB] px-4 py-2 text-xs text-[#92400E]">{btError}</div>
             )}
             {btResults.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#55687D]">
+              <div className="p-8 text-center text-xs text-[#6E6E73]">
                 {btLoading
                   ? "Querying UC Berkeley class catalog..."
                   : "Enter a UC Berkeley department or course (e.g. INFO, COMPSCI, LAW, STAT) and click Search Campus."}
               </div>
             ) : (
-              <div className="divide-y divide-[#E4EBF2]">
+              <div className="divide-y divide-[#F2F2F7]">
                 {btResults.map((cls) => {
                   const isAdded = plannedByCourseId.has(cls.id);
+                  const btCode = `${cls.subject} ${cls.courseNumber}`;
+                  const btPlannedCount = Math.max(
+                    courseDemand[cls.id] ?? 0,
+                    courseDemand[btCode] ?? 0,
+                  );
                   return (
-                    <article key={cls.id} className="px-4 py-3.5 hover:bg-[#F8FAFC] sm:px-5">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
+                    <article key={cls.id} className="px-4 py-3 hover:bg-[#FAFAFC] sm:px-5">
+                      <div className="flex flex-wrap items-start justify-between gap-2.5">
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-[#5B21B6]">
-                              {cls.subject} {cls.courseNumber} · {cls.sectionNumber}
+                          <div className="flex flex-wrap items-baseline gap-1.5">
+                            <span className="tabular-nums text-xs font-semibold text-[#5B21B6]">
+                              {btCode} · {cls.sectionNumber}
                             </span>
-                            <h3 className="font-sans text-sm font-semibold text-[#0F1E30]">
+                            <h3 className="text-[13px] font-semibold text-[#1D1D1F]">
                               {cls.title}
                             </h3>
-                            <span className="font-mono text-xs font-semibold text-[#3D4F63]">
-                              {cls.units}u
+                            <span className="tabular-nums text-xs text-[#6E6E73]">
+                              · {cls.units}u
                             </span>
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#3D4F63]">
+                          <div className="tabular-nums mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#6E6E73]">
                             <span>Prof: {cls.instructors}</span>
-                            <span className="font-mono">
+                            <span>
                               {cls.dayLabel} {cls.timeLabel}
                             </span>
                             {cls.averageGrade != null && (
-                              <span className="font-mono">
-                                Avg GPA: <strong>{cls.averageGrade.toFixed(2)}</strong>
+                              <span>
+                                Avg GPA: <strong className="font-medium text-[#1D1D1F]">{cls.averageGrade.toFixed(2)}</strong>
                               </span>
                             )}
                             {cls.maxEnroll != null && (
-                              <span className="font-mono">
+                              <span>
                                 Seats: {cls.enrolledCount ?? 0}/{cls.maxEnroll}
                               </span>
                             )}
+                            <span className="inline-flex items-center gap-1 font-medium text-[#003262]">
+                              <Users className="h-3 w-3" />
+                              {btPlannedCount} planned here
+                            </span>
                           </div>
                           {cls.evaluation && (
-                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                            <div className="tabular-nums mt-1 flex flex-wrap items-center gap-2 text-xs text-[#6E6E73]">
                               {cls.evaluation.courseWorth != null && (
-                                <span className="rounded bg-[#F8FAFC] px-2 py-0.5 font-mono text-[#0F1E30]">
-                                  Worth: <strong>{cls.evaluation.courseWorth}/7</strong>
+                                <span>
+                                  Worth: <strong className="font-medium text-[#1D1D1F]">{cls.evaluation.courseWorth}/7</strong>
                                 </span>
                               )}
                               {cls.evaluation.difficulty != null && (
-                                <span className="rounded bg-[#F8FAFC] px-2 py-0.5 font-mono text-[#0F1E30]">
-                                  Diff: <strong>{cls.evaluation.difficulty}/7</strong>
+                                <span>
+                                  Diff: <strong className="font-medium text-[#1D1D1F]">{cls.evaluation.difficulty}/7</strong>
                                 </span>
                               )}
                             </div>
@@ -670,10 +701,10 @@ export function CourseRecommender({
                           type="button"
                           disabled={busyId === cls.id}
                           onClick={() => void handleToggleBerkeleyClass(cls)}
-                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-[6px] px-2.5 py-1 text-xs font-medium transition ${
                             isAdded
-                              ? "border border-[#F5C2BE] bg-[#FEECEB] text-[#B42318]"
-                              : "bg-[#003262] text-white hover:bg-[#002145]"
+                              ? "border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]"
+                              : "border border-[#D1D1D6] bg-white text-[#1D1D1F] hover:border-[#003262] hover:bg-[#003262] hover:text-white"
                           }`}
                         >
                           {isAdded ? (

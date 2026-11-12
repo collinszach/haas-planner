@@ -51,18 +51,24 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F6F9] text-[#0F1E30]">
-      <header className="border-b border-[#002145] bg-[#003262] px-4 py-4 text-white sm:px-6">
+    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F]">
+      <header className="border-b border-[#E5E5EA] bg-[#F5F5F7]/90 px-4 py-3 backdrop-blur-md sm:px-6">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-display text-2xl font-bold tracking-tight">
-              Haas <span className="text-[#FDB515]">Planner</span>
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="grid h-6 w-6 place-items-center rounded-[6px] bg-[#003262] text-xs font-bold text-white"
+            >
+              H
             </span>
-            <span className="rounded bg-[#002145] px-2.5 py-0.5 font-mono text-xs text-[#DCE7F3]">
+            <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
+              Haas Planner
+            </span>
+            <span className="rounded-[5px] bg-[#E5E5EA] px-2 py-0.5 text-xs font-medium text-[#48484A]">
               FTMBA 2026–2028
             </span>
           </div>
-          <span className="text-xs font-medium text-[#DCE7F3]">
+          <span className="text-xs font-medium text-[#6E6E73]">
             UC Berkeley Haas · Student Tool
           </span>
         </div>
@@ -72,10 +78,10 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
         <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
           <div className="space-y-6 pt-2">
             <div>
-              <h1 className="font-display text-4xl font-bold tracking-tight text-[#003262] sm:text-5xl">
+              <h1 className="text-3xl font-semibold tracking-[-0.02em] text-[#1D1D1F] sm:text-4xl">
                 4-Semester MBA Planner &amp; Automated Core Swaps
               </h1>
-              <p className="mt-3 text-base leading-relaxed text-[#3D4F63]">
+              <p className="mt-3 text-[14px] leading-relaxed text-[#48484A]">
                 Build your Fall and Spring Haas schedule on a 30-minute grid, track 51 MBA
                 units, experiential requirements, and certificates, search UC Berkeley graduate
                 classes, and auto-generate blind 1:1 Core Swaps when an elective overlaps your
@@ -83,32 +89,32 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
               </p>
             </div>
 
-            <dl className="divide-y divide-[#D8E0EA] rounded-xl border border-[#D8E0EA] bg-white">
+            <dl className="divide-y divide-[#F2F2F7] rounded-[10px] border border-[#E5E5EA] bg-white">
               <div className="px-5 py-3.5">
-                <dt className="text-sm font-semibold text-[#0F1E30]">
+                <dt className="text-[13px] font-semibold text-[#1D1D1F]">
                   Haas Ratings, Workload &amp; Bid Risk
                 </dt>
-                <dd className="mt-1 text-xs text-[#55687D]">
+                <dd className="mt-1 text-xs text-[#6E6E73]">
                   Includes Fall 2026 and Spring 2027 schedules, course worth and instructor
-                  ratings (/7), difficulty workload tiers, certificate tags, and historical
-                  high-demand bid-out flags.
+                  ratings (/7), difficulty workload tiers, certificate tags, and live student
+                  planner demand.
                 </dd>
               </div>
               <div className="px-5 py-3.5">
-                <dt className="text-sm font-semibold text-[#0F1E30]">
+                <dt className="text-[13px] font-semibold text-[#1D1D1F]">
                   30-Minute Collision &amp; Auto-Swap Engine
                 </dt>
-                <dd className="mt-1 text-xs text-[#55687D]">
+                <dd className="mt-1 text-xs text-[#6E6E73]">
                   Adding a Spring elective or blocking half-hour intervals automatically computes
                   zero-conflict single, paired all-or-nothing, or cohort trades in the blind
                   FIFO queue.
                 </dd>
               </div>
               <div className="px-5 py-3.5">
-                <dt className="text-sm font-semibold text-[#0F1E30]">
+                <dt className="text-[13px] font-semibold text-[#1D1D1F]">
                   Live UC Berkeley Cross-Enrollment Search
                 </dt>
-                <dd className="mt-1 text-xs text-[#55687D]">
+                <dd className="mt-1 text-xs text-[#6E6E73]">
                   Query campus non-MBA courses across Engineering, Law, Public Policy, and Data
                   Science directly alongside your 5-unit non-Haas FTMBA cap.
                 </dd>
@@ -116,17 +122,17 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
             </dl>
           </div>
 
-          <section className="rounded-xl border border-[#D8E0EA] bg-white p-6 sm:p-7">
-            <h2 className="font-display text-2xl font-bold text-[#003262]">
+          <section className="rounded-[10px] border border-[#E5E5EA] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-7">
+            <h2 className="text-lg font-semibold tracking-[-0.01em] text-[#1D1D1F]">
               Sign in with Berkeley Email
             </h2>
-            <p className="mt-1 text-xs text-[#55687D]">
-              Verified <code className="font-mono font-semibold text-[#0F1E30]">@berkeley.edu</code>{" "}
+            <p className="mt-1 text-xs text-[#6E6E73]">
+              Verified <code className="font-mono font-semibold text-[#1D1D1F]">@berkeley.edu</code>{" "}
               accounts keep Student IDs private until a 1:1 swap match locks.
             </p>
 
             {error && (
-              <div className="mt-4 border-l-2 border-[#B42318] bg-[#FEECEB] px-3.5 py-2.5 text-xs font-medium text-[#B42318]">
+              <div className="mt-4 border-l-2 border-[#B42318] bg-[#FEF2F2] px-3.5 py-2.5 text-xs font-medium text-[#B42318]">
                 {error}
               </div>
             )}
@@ -137,7 +143,7 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
                   type="button"
                   disabled={loading}
                   onClick={handleGoogleLogin}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-[#003262] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002145] disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-[7px] bg-[#003262] px-4 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#002145] disabled:opacity-60"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                     <path
@@ -149,20 +155,20 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
                 </button>
 
                 <div className="relative flex items-center py-1">
-                  <div className="flex-grow border-t border-[#D8E0EA]" />
-                  <span className="mx-3 flex-shrink text-xs font-medium text-[#55687D]">
+                  <div className="flex-grow border-t border-[#E5E5EA]" />
+                  <span className="mx-3 flex-shrink text-xs font-medium text-[#6E6E73]">
                     or email magic link
                   </span>
-                  <div className="flex-grow border-t border-[#D8E0EA]" />
+                  <div className="flex-grow border-t border-[#E5E5EA]" />
                 </div>
 
                 {otpSent ? (
-                  <div className="border-l-2 border-[#0F6B4E] bg-[#E6F5EE] p-4 text-center">
+                  <div className="border-l-2 border-[#0F6B4E] bg-[#ECFDF5] p-4 text-center">
                     <CheckCircle2 className="mx-auto mb-1.5 h-5 w-5 text-[#0F6B4E]" />
-                    <p className="text-sm font-semibold text-[#0F6B4E]">
+                    <p className="text-[13px] font-semibold text-[#065F46]">
                       Check your @berkeley.edu inbox
                     </p>
-                    <p className="mt-1 text-xs text-[#0F1E30]">
+                    <p className="mt-1 text-xs text-[#1D1D1F]">
                       Sign-in link sent to <strong>{email}</strong>.
                     </p>
                   </div>
@@ -179,13 +185,13 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="your_name@berkeley.edu"
-                        className="w-full rounded-lg border border-[#CBD5E1] px-3.5 py-2.5 text-sm text-[#0F1E30] outline-none focus:border-[#003262]"
+                        className="w-full rounded-[7px] border border-[#D1D1D6] px-3.5 py-2 text-[13px] text-[#1D1D1F] outline-none focus:border-[#003262]"
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] px-4 py-2.5 text-sm font-semibold text-[#0F1E30] transition hover:bg-[#EDF2F7] disabled:opacity-60"
+                      className="w-full rounded-[7px] border border-[#D1D1D6] bg-[#FAFAFC] px-4 py-2 text-[13px] font-medium text-[#1D1D1F] transition hover:bg-[#F5F5F7] disabled:opacity-60"
                     >
                       {loading ? "Sending link..." : "Send Magic Sign-In Link"}
                     </button>
@@ -193,23 +199,23 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
                 )}
               </div>
             ) : (
-              <div className="mt-5 border-l-2 border-[#8A5300] bg-[#FEF5DC] p-3.5 text-xs text-[#8A5300]">
+              <div className="mt-5 border-l-2 border-[#D97706] bg-[#FFFBEB] p-3.5 text-xs text-[#92400E]">
                 Live Supabase environment keys are not configured here. Launch the interactive
                 demo below to plan courses and test live swaps.
               </div>
             )}
 
             {(!isSupabaseConfigured || import.meta.env.VITE_ALLOW_DEMO_MODE === "true") && (
-              <div className="mt-6 border-t border-[#D8E0EA] pt-5">
+              <div className="mt-6 border-t border-[#E5E5EA] pt-5">
                 <button
                   type="button"
                   onClick={onEnterSandbox}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#FDB515] px-4 py-2.5 text-sm font-bold text-[#002145] transition hover:bg-[#eab308]"
+                  className="flex w-full items-center justify-center gap-2 rounded-[7px] border border-[#D1D1D6] bg-white px-4 py-2 text-[13px] font-medium text-[#1D1D1F] transition hover:bg-[#F5F5F7]"
                 >
-                  <FlaskConical className="h-4 w-4" />
+                  <FlaskConical className="h-4 w-4 text-[#003262]" />
                   Launch Interactive Sandbox Demo
                 </button>
-                <p className="mt-2 text-center text-xs text-[#55687D]">
+                <p className="mt-2 text-center text-xs text-[#6E6E73]">
                   Switch between demo students (Maya, Liam, Sofia, Noah) with seeded swaps and
                   real schedules.
                 </p>

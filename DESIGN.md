@@ -1,29 +1,30 @@
-# Haas Planner — Design System
+# Haas Planner — Design System (Native macOS Calendar & Inspector)
 
-- **Surface Mode**: Operate (precision daytime workstation for scanning timetables, comparing course metrics, and executing multi-term scheduling decisions).
-- **Signature Move**: A unified 30-minute column-aligned timetable where Core Cohort blocks, Electives, and drag-painted Personal Blocks share exact half-hour cells and immediately compute auto-populated Core Swaps when an overlap occurs.
+- **Surface Mode**: Operate (native desktop utility workstation for 30-minute timetable planning, OLR Round 932 bidding, live classmate planner demand checks, and automated 1:1 Core Swaps).
+- **Signature Layout**: Edge-to-edge two-pane split workbench (`#FFFFFF` frame over `#F5F5F7` canvas) with translucent grouped macOS toolbar, underline semester tabs, flush swap alert/waiting strips, clean color-tinted calendar blocks with category status dots on the left, and a compact tabular Course Catalog inspector on the right.
 
 ## Typography
-- **Display / Headings**: `"Barlow Condensed"`, `"Barlow"`, sans-serif (weights 600, 700, tabular numerals, minimum 1.25x ratio over body).
-- **UI Body / Controls**: `"IBM Plex Sans"`, sans-serif (weights 400, 500, 600; 14px base body, minimum 11px interactive/table metadata, `line-height: 1.5`).
-- **Codes / Timetables / Units**: `"IBM Plex Mono"`, monospace (for course IDs like `MBA231.1`, `09:30–11:00`, `3.0u`).
+- **UI & Display**: `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif` (weights 400, 500, 600; 14px base body, 12px minimum interactive/badge label size).
+- **Numeric Alignment**: `font-variant-numeric: tabular-nums` (`tabular-nums`) for timetable hours, units, OLR seats, bid budgets, and student planner counts.
+- **Monospace**: `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace` reserved strictly for inline code/email literals.
 
 ## Color Tokens
-- **Berkeley Blue (Primary Shell / Actions)**: `#003262` (hover `#002145`)
-- **California Gold (Active Indicator / Highlight)**: `#FDB515` (pill badge text `#7A4B00` on `#FEF5DC`)
-- **App Canvas**: `#F4F6F9`
-- **Worksheet Surface**: `#FFFFFF`
-- **Subtle Panel**: `#F8FAFC`
-- **Hairline Border**: `#D8E0EA` (1px crisp borders only; never thick left/right accent stripes)
-- **Ink Primary**: `#0F1E30`
-- **Ink Secondary**: `#3D4F63`
-- **Ink Muted**: `#55687D`
-- **Semantic States**:
-  - Fits / Confirmed: `#0F6B4E` ink on `#E6F5EE` fill (`#B7E4D1` border)
-  - Auto-Swap / Warning: `#8A5300` ink on `#FEF5DC` fill (`#F3D58A` border)
-  - Conflict / High Risk: `#B42318` ink on `#FEECEB` fill (`#F5C2BE` border)
+- **Berkeley Blue (Primary Actions & Active Focus)**: `#003262` (hover `#002145`)
+- **App Canvas / Grouped Toolbar**: `#F5F5F7` (translucent `rgba(245,245,247,0.9)` + `backdrop-blur-md`)
+- **Split Workbench Surface**: `#FFFFFF`
+- **Subtle Inspector / Sticky Header**: `#FAFAFC`
+- **Segmented Control Track**: `#E5E5EA` (active pill `#FFFFFF` with subtle shadow `0 1px 2px rgba(0,0,0,0.08)`)
+- **Hairline Borders & Row Dividers**: `1px solid #E5E5EA` (panes/headers), `1px solid #F2F2F7` (rows/30m cells)
+- **Ink Primary / Secondary / Muted**: `#1D1D1F` / `#48484A` / `#6E6E73`
+- **Timetable & Semantic Blocks** (uniform 1px hairline border + solid status dot or dashed waiting preview):
+  - **Haas Core**: `#003262` ink & `#003262` dot on `#F0F5FA` fill (`#B8CBE0` border)
+  - **Haas Elective / Confirmed**: `#065F46` ink & `#0F6B4E` dot on `#ECFDF5` fill (`#A7F3D0` border)
+  - **Non-MBA Campus**: `#5B21B6` ink & `#7C3AED` dot on `#F5F3FF` fill (`#DDD6FE` border)
+  - **Swapping Out / Waiting Strip**: dashed `#D97706` border, `#92400E` ink on `#FFFBEB` fill
+  - **Swap Target (#1 Choice)**: dashed `#0284C7` border, `#0369A1` ink on `#F0F9FF` fill
+  - **Conflict**: `#991B1B` ink & `#DC2626` dot on `#FEF2F2` fill (`#FECACA` border)
 
 ## Scale & Elevation
-- **Type Scale**: `11px` (badge/table micro-label), `12px` (dense timetable cell), `13px` (control/table row), `14px` (body copy), `16px` (`h3`), `20px` (`h2`), `28px` (`h1`).
-- **Radii**: `6px` (chips/badges), `8px` (inputs/buttons), `12px` (panels/drawers).
-- **Elevation**: Flat hairline (`1px solid #D8E0EA`), zero drop shadows except elevated dialogs/drawers (`0 12px 32px rgba(15, 30, 48, 0.14)`). Never nest bordered cards inside bordered cards; separate regions with spacing (`16px–24px`) and hairline dividers (`divide-y`).
+- **Type Scale**: `12px` (chips, metadata, timetable blocks), `13px` (course titles, compact inspector controls), `14px` (base body), `20px` (section headers).
+- **Radii**: `4px`–`5px` (calendar blocks, segmented pills), `6px`–`7px` (buttons, inputs, segmented container), `10px` (workbench window & primary panels).
+- **Elevation**: Flat hairline (`1px solid #E5E5EA`) with zero nested bordered cards inside bordered cards; subtle `0 1px 3px rgba(0,0,0,0.04)` reserved only for top-level workbench windows and account pills.

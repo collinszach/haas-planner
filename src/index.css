@@ -4,26 +4,29 @@
 
 @layer base {
   html {
-    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     font-size: 16px;
-    color: #0F1E30;
-    background-color: #F4F6F9;
+    color: #1D1D1F;
+    background-color: #F5F5F7;
   }
 
   body {
-    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
     font-size: 14px;
-    line-height: 1.5;
-    color: #0F1E30;
-    background-color: #F4F6F9;
+    line-height: 1.45;
+    color: #1D1D1F;
+    background-color: #F5F5F7;
     margin: 0;
+    overflow-x: hidden;
   }
 
   h1,
   h2,
   h3 {
-    font-family: "Barlow Condensed", "Barlow", sans-serif;
-    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    letter-spacing: -0.015em;
     font-variant-numeric: tabular-nums;
     text-wrap: balance;
   }
@@ -34,7 +37,7 @@
 
   input::placeholder,
   textarea::placeholder {
-    color: #55687D;
+    color: #6E6E73;
     opacity: 1;
   }
 
@@ -42,7 +45,7 @@
   kbd,
   pre,
   .font-mono {
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-variant-numeric: tabular-nums;
   }
 }

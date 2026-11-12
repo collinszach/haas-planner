@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { computeCourseDemandFromProfiles } from "@/lib/api";
 import {
   catalogCourseToPlannedRecord,
   OLR_SPRING_2027_RULES,
@@ -871,5 +872,34 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(multiDiag.cohortAlternative?.wantedCohorts.length ?? 0).toBeGreaterThan(0);
     expect(multiDiag.swapType).toBe("cohort");
     expect(multiDiag.recommendedReason).toContain("Full Cohort switch is best");
+  });
+
+  it("aggregates unique student planner counts per course without double-counting and supports avatarUrl", () => {
+    const corpFin = SPRING_2027_COURSES.find((c) => c.code === "MBA231.2");
+    expect(corpFin).toBeDefined();
+    const s1 = makeProfile({
+      id: "student-a",
+      avatarUrl: "https://lh3.googleusercontent.com/a/example",
+      plannedCourses: corpFin
+        ? [
+            catalogCourseToPlannedRecord(corpFin, "Y1_Spring"),
+            catalogCourseToPlannedRecord(corpFin, "Y2_Spring"),
+          ]
+        : [],
+    });
+    const s2 = makeProfile({
+      id: "student-b",
+      plannedCourses: corpFin ? [catalogCourseToPlannedRecord(corpFin, "Y1_Spring")] : [],
+    });
+
+    const demand = computeCourseDemandFromProfiles([s1, s2]);
+    if (corpFin) {
+      expect(demand[corpFin.id]).toBe(2);
+      expect(demand[corpFin.code]).toBe(2);
+    }
+
+    const demoDemand = computeCourseDemandFromProfiles(Object.values(DEMO_PROFILES));
+    expect(demoDemand["MBA231.2"]).toBeGreaterThanOrEqual(3);
+    expect(demoDemand["MBA212.1"]).toBeGreaterThanOrEqual(2);
   });
 });

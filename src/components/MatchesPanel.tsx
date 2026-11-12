@@ -76,14 +76,14 @@ export function MatchesPanel({
   return (
     <div className="space-y-6">
       {/* Verified Matches Section */}
-      <section className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">
+      <section className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="flex items-center gap-2 font-display text-xl font-bold text-[#003262]">
+            <h2 className="flex items-center gap-2 text-sm font-semibold tracking-[-0.01em] text-[#1D1D1F]">
               <ShieldCheck className="h-4 w-4 text-[#0F6B4E]" />
               My Verified Matches ({visibleMatches.length})
             </h2>
-            <p className="mt-0.5 text-xs text-[#55687D]">
+            <p className="mt-0.5 text-xs text-[#6E6E73]">
               Partner Name, Berkeley Email, Student ID, and match time unlock immediately once a
               verified 1:1 mirror match locks.
             </p>
@@ -91,12 +91,12 @@ export function MatchesPanel({
         </div>
 
         {visibleMatches.length === 0 && externalSheetMatches.length === 0 ? (
-          <div className="rounded-lg bg-[#F8FAFC] p-6 text-center text-xs text-[#55687D]">
+          <div className="rounded-lg bg-[#FAFAFC] p-6 text-center text-xs text-[#6E6E73]">
             No locked matches yet. When your blind request finds a mirror partner, their Name,
             Berkeley Email, Student ID, and match time will appear here immediately.
           </div>
         ) : (
-          <div className="divide-y divide-[#D8E0EA]">
+          <div className="divide-y divide-[#E5E5EA]">
             {visibleMatches.map((match) => {
               const iAmA = match.userAId === profile.id;
               const myGives = iAmA ? match.userAGivesKey : match.userBGivesKey;
@@ -136,7 +136,7 @@ export function MatchesPanel({
                         <span className={`rounded-md px-2.5 py-0.5 text-xs font-bold ${statusBadge}`}>
                           {statusLabel}
                         </span>
-                        <span className="rounded-md bg-[#F8FAFC] px-2 py-0.5 font-mono text-xs font-medium text-[#3D4F63]">
+                        <span className="rounded-md bg-[#FAFAFC] px-2 py-0.5 font-mono text-xs font-medium text-[#48484A]">
                           Choice #{myRank}
                         </span>
                         <span className="rounded-md bg-[#E6F5EE] px-2 py-0.5 text-xs font-medium text-[#0F6B4E]">
@@ -154,13 +154,13 @@ export function MatchesPanel({
                           </span>
                         )}
                       </div>
-                      <div className="mt-2 text-sm font-bold text-[#0F1E30]">
+                      <div className="mt-2 text-sm font-bold text-[#1D1D1F]">
                         Give up:{" "}
                         <span className="text-[#B42318]">{formatSwapKey(myGives)}</span> → Receive:{" "}
                         <span className="text-[#0F6B4E]">{formatSwapKey(myGets)}</span>
                       </div>
                       {secGets && (
-                        <div className="mt-1 text-xs text-[#3D4F63]">
+                        <div className="mt-1 text-xs text-[#48484A]">
                           New schedule: {secGets.daysTimeLabel} · Room {secGets.room} ·{" "}
                           {secGets.instructor} · Fri: {secGets.fridayDiscussionLabel}
                           {secGets.makeupDays ? ` · Make-ups: ${secGets.makeupDays}` : ""}
@@ -171,7 +171,7 @@ export function MatchesPanel({
                     <button
                       type="button"
                       onClick={() => handleCopy(match.id, formPayload)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0F1E30] hover:bg-[#F8FAFC]"
+                      className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-1.5 text-xs font-semibold text-[#1D1D1F] hover:bg-[#FAFAFC]"
                     >
                       {copiedId === match.id ? (
                         <>
@@ -188,17 +188,17 @@ export function MatchesPanel({
                   </div>
 
                   {/* Revealed Partner Surface (subtle tint, zero nested borders) */}
-                  <div className="mt-4 grid gap-3 rounded-lg bg-[#F8FAFC] p-4 sm:grid-cols-3">
+                  <div className="mt-4 grid gap-3 rounded-lg bg-[#FAFAFC] p-4 sm:grid-cols-3">
                     <div>
-                      <div className="text-xs font-semibold text-[#55687D]">
+                      <div className="text-xs font-semibold text-[#6E6E73]">
                         Matched Partner Name
                       </div>
-                      <div className="mt-0.5 text-sm font-bold text-[#0F1E30]">
+                      <div className="mt-0.5 text-sm font-bold text-[#1D1D1F]">
                         {partner?.fullName ?? "Verified Student"}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-[#55687D]">Berkeley Email</div>
+                      <div className="text-xs font-semibold text-[#6E6E73]">Berkeley Email</div>
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-[#003262]">
                         <a
                           href={`mailto:${partner?.email ?? ""}?subject=${encodeURIComponent(
@@ -212,11 +212,11 @@ export function MatchesPanel({
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-[#55687D]">
+                      <div className="text-xs font-semibold text-[#6E6E73]">
                         Student ID (SID)
                       </div>
                       <div className="mt-0.5 flex items-center gap-2">
-                        <span className="rounded bg-white px-2 py-0.5 font-mono text-sm font-bold text-[#0F1E30]">
+                        <span className="rounded bg-white px-2 py-0.5 font-mono text-sm font-bold text-[#1D1D1F]">
                           {partner?.studentId || "Not added yet"}
                         </span>
                         {partner?.studentId && (
@@ -247,7 +247,7 @@ export function MatchesPanel({
                               setBusyId(null);
                             }
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-berkeley-blue px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#00417e] disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#003262] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#00417e] disabled:opacity-50"
                         >
                           <Send className="h-3.5 w-3.5" />
                           I Submitted Official Form
@@ -266,7 +266,7 @@ export function MatchesPanel({
                               setBusyId(null);
                             }
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-[10px] border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           Office Confirmed Swap (Updates Schedule)
@@ -292,7 +292,7 @@ export function MatchesPanel({
                   </div>
 
                   {releasingId === match.id && (
-                    <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                    <div className="mt-3 rounded-[10px] border border-rose-200 bg-rose-50 p-3">
                       <p className="text-xs font-medium text-rose-900">
                         Releasing this match cancels <strong>your</strong>{" "}
                         request and automatically restores{" "}
@@ -335,7 +335,7 @@ export function MatchesPanel({
             {externalSheetMatches.map((ext) => (
               <div
                 key={ext.id}
-                className="flex flex-wrap items-center justify-between gap-3 border-t border-[#D8E0EA] bg-[#F8FAFC] p-4"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E5EA] bg-[#FAFAFC] p-4"
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -354,7 +354,7 @@ export function MatchesPanel({
                           ? "Official Form Submitted"
                           : "Sheet Match Recorded"}
                     </span>
-                    <span className="text-xs text-[#55687D]">
+                    <span className="text-xs text-[#6E6E73]">
                       Input: {new Date(ext.queuePriorityAt).toLocaleString()}
                     </span>
                   </div>
@@ -379,7 +379,7 @@ export function MatchesPanel({
                             [ext.id]: e.target.value,
                           }))
                         }
-                        className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30]"
+                        className="rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1D1D1F]"
                       >
                         {ext.wantedKeys.map((k) => (
                           <option key={k} value={k}>
@@ -402,7 +402,7 @@ export function MatchesPanel({
                           setBusyId(null);
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Confirm Swap &amp; Shift Schedule
@@ -416,14 +416,14 @@ export function MatchesPanel({
       </section>
 
       {/* Active Waiting Queue Section */}
-      <section className="rounded-xl border border-[#D8E0EA] bg-white p-5 sm:p-6">
+      <section className="rounded-[10px] border border-[#E5E5EA] bg-white p-5 sm:p-6">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <h2 className="flex items-center gap-2 font-display text-xl font-bold text-[#003262]">
+            <h2 className="flex items-center gap-2 text-sm font-semibold tracking-[-0.01em] text-[#1D1D1F]">
               <Clock className="h-4 w-4 text-[#8A5300]" />
               My Waiting Blind Requests ({activeRequests.length})
             </h2>
-            <p className="mt-0.5 text-xs text-[#55687D]">
+            <p className="mt-0.5 text-xs text-[#6E6E73]">
               Your unmatched requests waiting in FIFO order by Queue priority. Once a mirror partner
               submits, this moves up to Verified Matches automatically — or click Withdraw to cancel.
             </p>
@@ -431,11 +431,11 @@ export function MatchesPanel({
         </div>
 
         {activeRequests.length === 0 ? (
-          <p className="text-xs text-[#55687D]">
+          <p className="text-xs text-[#6E6E73]">
             You have no unmatched requests waiting in the queue.
           </p>
         ) : (
-          <div className="divide-y divide-[#D8E0EA] rounded-lg bg-[#F8FAFC]">
+          <div className="divide-y divide-[#E5E5EA] rounded-lg bg-[#FAFAFC]">
             {activeRequests.map((req) => (
               <div
                 key={req.id}
@@ -452,14 +452,14 @@ export function MatchesPanel({
                         Paired All-or-Nothing
                       </span>
                     )}
-                    <span className="font-mono text-xs text-[#55687D]">
+                    <span className="font-mono text-xs text-[#6E6E73]">
                       Queue priority: {new Date(req.queuePriorityAt).toLocaleString()}
                     </span>
                   </div>
-                  <div className="text-xs text-[#0F1E30]">
+                  <div className="text-xs text-[#1D1D1F]">
                     <strong>Giving up:</strong> {formatSwapKey(req.givingUpKey)}
                   </div>
-                  <div className="text-xs text-[#3D4F63]">
+                  <div className="text-xs text-[#48484A]">
                     <strong>Accepting:</strong>{" "}
                     {req.wantedKeys.map((k, i) => `#${i + 1} ${formatSwapKey(k)}`).join(" · ")}
                   </div>
@@ -469,7 +469,7 @@ export function MatchesPanel({
                   <button
                     type="button"
                     onClick={() => onCancelRequest(req.id)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#3D4F63] hover:border-[#F5C2BE] hover:text-[#B42318]"
+                    className="inline-flex items-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-1.5 text-xs font-medium text-[#48484A] hover:border-[#F5C2BE] hover:text-[#B42318]"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Withdraw
