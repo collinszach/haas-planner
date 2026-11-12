@@ -59,6 +59,7 @@ function hydrateProfile(p: StudentProfile): StudentProfile {
     degreeTrack: p.degreeTrack ?? "FTMBA",
     targetCertificates: p.targetCertificates ?? [],
     plannedCourses: p.plannedCourses ?? [],
+    plannedBids: p.plannedBids ?? {},
   };
 }
 
@@ -409,6 +410,7 @@ export async function fetchDashboardData(
         degreeTrack: (p.degree_track as DegreeTrack) ?? "FTMBA",
         targetCertificates: (p.target_certificates as CertificateCode[]) ?? [],
         plannedCourses: (p.planned_courses as PlannedCourseRecord[]) ?? [],
+        plannedBids: (p.planned_bids as Record<string, number>) ?? {},
       })
     : null;
 
@@ -538,6 +540,7 @@ export async function saveStudentProfile(
       degree_track: normalized.degreeTrack ?? "FTMBA",
       target_certificates: normalized.targetCertificates ?? [],
       planned_courses: normalized.plannedCourses ?? [],
+      planned_bids: normalized.plannedBids ?? {},
     },
     { onConflict: "id" },
   );
@@ -666,13 +669,27 @@ export async function confirmExternalSheetRequest(
   if (mode === "sandbox" || !supabase) {
     const box = loadSandbox();
     const req = box.state.requests.find(
-      (r) => r.id === requestId && r.userId === userId,
+      (r) =>
+        r.id === requestId &&
+        r.userId === userId &&
+        (r.status === "active" || r.status === "matched" || r.status === "submitted"),
     );
     if (!req) return;
     const nextKey = receivedKey ?? req.wantedKeys[0];
     const now = new Date().toISOString();
     box.state.requests = box.state.requests.map((r) =>
       r.id === requestId ? { ...r, status: "confirmed", updatedAt: now } : r,
+    );
+    box.state.matches = box.state.matches.map((m) =>
+      (m.requestAId === requestId || m.requestBId === requestId) &&
+      (m.status === "matched" || m.status === "submitted")
+        ? {
+            ...m,
+            status: "confirmed",
+            confirmedByA: m.userAId === userId ? true : m.confirmedByA,
+            confirmedByB: m.userBId === userId ? true : m.confirmedByB,
+          }
+        : m,
     );
     const prof = box.state.profiles[userId];
     if (prof && nextKey) {

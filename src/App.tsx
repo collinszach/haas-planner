@@ -325,6 +325,18 @@ export function App() {
     showToast("Course removed from plan.");
   };
 
+  const handleUpdatePlannedBid = async (courseId: string, points: number) => {
+    if (!profile) return;
+    const runMode = mode === "live" ? "live" : "sandbox";
+    const clean = Math.max(0, Math.min(1000, Math.round(Number.isFinite(points) ? points : 0)));
+    const nextBids = { ...(profile.plannedBids ?? {}) };
+    if (clean === 0) delete nextBids[courseId];
+    else nextBids[courseId] = clean;
+    const updated: StudentProfile = { ...profile, plannedBids: nextBids };
+    setProfile(updated);
+    await saveStudentProfile(runMode, updated);
+  };
+
   const handleSubmitSwap = async (payload: SubmitSwapPayload) => {
     const runMode = mode === "live" ? "live" : "sandbox";
     const result = await submitSwapAndAutomatch(runMode, payload);
@@ -360,9 +372,12 @@ export function App() {
     showToast("Swap confirmed and schedule timetable updated.");
   };
 
-  const handleConfirmExternalRequest = async (requestId: string) => {
+  const handleConfirmExternalRequest = async (
+    requestId: string,
+    receivedKey?: string,
+  ) => {
     const runMode = mode === "live" ? "live" : "sandbox";
-    await confirmExternalSheetRequest(runMode, authUserId, requestId);
+    await confirmExternalSheetRequest(runMode, authUserId, requestId, receivedKey);
     await loadDashboard(runMode, authUserId);
     showToast("Swap confirmed and schedule timetable updated.");
   };
@@ -609,14 +624,19 @@ export function App() {
                 </div>
 
                 {(activeSemester === "Y1_Spring" ||
-                  (autoSwapDiag?.legs.length ?? 0) > 0) && (
+                  (autoSwapDiag?.legs.length ?? 0) > 0 ||
+                  matches.some((m) => m.status === "matched" || m.status === "submitted") ||
+                  requests.some((r) => r.status === "matched" || r.status === "submitted")) && (
                   <AutoSwapTray
                     profile={profile}
                     sections={sections}
                     marketPulse={marketPulse}
                     existingRequests={requests}
+                    matches={matches}
                     timelineEnded={timelineEnded}
                     onSubmitSwap={handleSubmitSwap}
+                    onMarkConfirmed={handleMarkConfirmed}
+                    onConfirmExternalRequest={handleConfirmExternalRequest}
                     onOpenSwapWorkspace={() => setActiveTab("swaps")}
                   />
                 )}
@@ -639,6 +659,7 @@ export function App() {
                       marketPulse={marketPulse}
                       onAddCourse={handleAddPlannedCourse}
                       onRemoveCourse={handleRemovePlannedCourse}
+                      onUpdatePlannedBid={handleUpdatePlannedBid}
                     />
                   </div>
                 </div>
@@ -662,8 +683,11 @@ export function App() {
                   sections={sections}
                   marketPulse={marketPulse}
                   existingRequests={requests}
+                  matches={matches}
                   timelineEnded={timelineEnded}
                   onSubmitSwap={handleSubmitSwap}
+                  onMarkConfirmed={handleMarkConfirmed}
+                  onConfirmExternalRequest={handleConfirmExternalRequest}
                 />
 
                 <div ref={swapBuilderRef} id="swap-builder-form">

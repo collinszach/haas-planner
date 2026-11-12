@@ -3,6 +3,7 @@ import {
   berkeleyClassToPlannedRecord,
   catalogCourseToPlannedRecord,
   CERTIFICATE_LABELS,
+  OLR_SPRING_2027_RULES,
 } from "@/data/catalog";
 import { searchBerkeleyCourses } from "@/lib/berkeleyApi";
 import { recommendCoursesForSemester } from "@/lib/courseRecommender";
@@ -22,6 +23,7 @@ import type {
 import {
   ArrowRightLeft,
   Check,
+  ExternalLink,
   Plus,
   Search,
   Trash2,
@@ -34,9 +36,10 @@ interface CourseRecommenderProps {
   marketPulse: MarketPulseItem[];
   onAddCourse: (record: PlannedCourseRecord) => Promise<void>;
   onRemoveCourse: (instanceId: string) => Promise<void>;
+  onUpdatePlannedBid?: (courseId: string, points: number) => Promise<void>;
 }
 
-type RecommenderTab = "fits" | "swap_unlocks" | "all" | "berkeley";
+type RecommenderTab = "fits" | "swap_unlocks" | "olr932" | "all" | "berkeley";
 type SortOption = "score" | "worth" | "instructor" | "ease" | "bid";
 
 const BID_RANK: Record<string, number> = {
@@ -60,6 +63,7 @@ export function CourseRecommender({
   marketPulse,
   onAddCourse,
   onRemoveCourse,
+  onUpdatePlannedBid,
 }: CourseRecommenderProps) {
   const [tab, setTab] = useState<RecommenderTab>("fits");
   const [sortBy, setSortBy] = useState<SortOption>("score");
@@ -106,12 +110,46 @@ export function CourseRecommender({
   const counts = useMemo(() => {
     let fits = 0;
     let swap = 0;
+    let olr932 = 0;
     for (const r of allRecommendations) {
       if (r.fitStatus === "fits") fits += 1;
       else if (r.fitStatus === "swap_unlocks") swap += 1;
+      if (r.course.olrRoundId === OLR_SPRING_2027_RULES.roundId) olr932 += 1;
     }
-    return { fits, swap, total: allRecommendations.length };
+    return { fits, swap, olr932, total: allRecommendations.length };
   }, [allRecommendations]);
+
+  const springBudget = useMemo(() => {
+    const springSummary = audit.bySemester.find((s) => s.semesterId === "Y1_Spring");
+    const coreUnits = springSummary?.coreUnits ?? 7;
+    const electiveUnits = springSummary?.electiveUnits ?? 0;
+    const totalUnits = springSummary?.totalUnits ?? coreUnits + electiveUnits;
+    const remainingUnits = Math.max(0, OLR_SPRING_2027_RULES.maxSpringUnits - totalUnits);
+    const overUnitCap = totalUnits > OLR_SPRING_2027_RULES.maxSpringUnits;
+
+    const springPlannedIds = new Set(
+      (profile.plannedCourses ?? [])
+        .filter((p) => p.semesterId === "Y1_Spring")
+        .map((p) => p.courseId),
+    );
+    const bidExpended = Object.entries(profile.plannedBids ?? {}).reduce(
+      (sum, [courseId, pts]) =>
+        springPlannedIds.has(courseId) ? sum + Math.max(0, pts || 0) : sum,
+      0,
+    );
+    const bidRemaining = Math.max(0, OLR_SPRING_2027_RULES.maxBidPoints - bidExpended);
+    const overBidBudget = bidExpended > OLR_SPRING_2027_RULES.maxBidPoints;
+    return {
+      coreUnits,
+      electiveUnits,
+      totalUnits,
+      remainingUnits,
+      overUnitCap,
+      bidExpended,
+      bidRemaining,
+      overBidBudget,
+    };
+  }, [audit.bySemester, profile.plannedCourses, profile.plannedBids]);
 
   const filtered = useMemo(() => {
     if (tab === "berkeley") return [];
@@ -120,6 +158,9 @@ export function CourseRecommender({
     const list = allRecommendations.filter((rec) => {
       if (tab === "fits" && rec.fitStatus !== "fits") return false;
       if (tab === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
+      if (tab === "olr932" && rec.course.olrRoundId !== OLR_SPRING_2027_RULES.roundId) {
+        return false;
+      }
       if (certFilter !== "ALL" && !rec.course.certificates.includes(certFilter)) return false;
       if (onlyExperiential && !rec.course.experiential) return false;
       if (onlyBusTech && !rec.course.businessTech) return false;
@@ -237,17 +278,30 @@ export function CourseRecommender({
           </button>
 
           {semesterId === "Y1_Spring" && (
-            <button
-              type="button"
-              onClick={() => setTab("swap_unlocks")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                tab === "swap_unlocks"
-                  ? "bg-[#003262] text-white"
-                  : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
-              }`}
-            >
-              Swap Unlocks ({counts.swap})
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setTab("swap_unlocks")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  tab === "swap_unlocks"
+                    ? "bg-[#003262] text-white"
+                    : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
+                }`}
+              >
+                Swap Unlocks ({counts.swap})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("olr932")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  tab === "olr932"
+                    ? "bg-[#003262] text-white"
+                    : "bg-[#F8FAFC] text-[#3D4F63] hover:bg-[#EDF2F7]"
+                }`}
+              >
+                OLR Bidding 932 ({counts.olr932})
+              </button>
+            </>
           )}
 
           <button
@@ -277,6 +331,40 @@ export function CourseRecommender({
             UC Berkeley Non-MBA
           </button>
         </div>
+
+        {/* OLR Round 932 Spring 2027 Budget & Units Strip */}
+        {semesterId === "Y1_Spring" && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span
+                className={`font-mono font-semibold ${
+                  springBudget.overBidBudget ? "text-[#B42318]" : "text-[#0F1E30]"
+                }`}
+              >
+                Bid Pts: {springBudget.bidExpended}/{OLR_SPRING_2027_RULES.maxBidPoints} (Rem{" "}
+                {springBudget.bidRemaining})
+              </span>
+              <span
+                className={`font-mono font-semibold ${
+                  springBudget.overUnitCap ? "text-[#B42318]" : "text-[#0F1E30]"
+                }`}
+              >
+                Spring Units: {springBudget.totalUnits}/{OLR_SPRING_2027_RULES.maxSpringUnits}u (
+                {springBudget.coreUnits}u Core + {springBudget.electiveUnits}u Elec · Rem{" "}
+                {springBudget.remainingUnits}u)
+              </span>
+            </div>
+            <a
+              href={OLR_SPRING_2027_RULES.olrUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 font-semibold text-[#003262] hover:underline"
+            >
+              OLR Portal (932)
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        )}
 
         {/* Filters */}
         {tab !== "berkeley" ? (
@@ -399,9 +487,14 @@ export function CourseRecommender({
                         <span className="font-mono">
                           {course.dayLabel} {course.timeLabel} · {course.part}
                         </span>
+                        {course.meetings[0]?.room && (
+                          <span className="font-mono text-[#55687D]">
+                            {course.meetings[0].room}
+                          </span>
+                        )}
                       </div>
 
-                      {/* Ratings, Ease & Workload, Bid Risk */}
+                      {/* Ratings, Ease & Workload, Bid Risk, OLR Seats */}
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                         <span className="rounded bg-[#F8FAFC] px-2 py-0.5 font-mono text-xs text-[#0F1E30]">
                           Worth:{" "}
@@ -428,9 +521,24 @@ export function CourseRecommender({
                         <span className={`rounded border px-2 py-0.5 text-xs font-medium ${bid.style}`}>
                           {bid.label}
                         </span>
+                        {course.olrAvailable != null && course.olrCapacity != null && (
+                          <span
+                            className={`rounded px-2 py-0.5 font-mono text-xs font-semibold ${
+                              course.olrAvailable === 0
+                                ? "bg-[#FEECEB] text-[#B42318]"
+                                : course.olrAvailable <= 10
+                                  ? "bg-[#FEF5DC] text-[#8A5300]"
+                                  : "bg-[#E6F5EE] text-[#0F6B4E]"
+                            }`}
+                          >
+                            {course.olrAvailable === 0
+                              ? `Full (0/${course.olrCapacity})`
+                              : `Seats: ${course.olrAvailable}/${course.olrCapacity}`}
+                          </span>
+                        )}
                       </div>
 
-                      {/* What it fills + fit diagnostics */}
+                      {/* What it fills + fit diagnostics + OLR Evals */}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {rec.fitStatus === "fits" ? (
                           <span className="rounded bg-[#E6F5EE] px-2 py-0.5 text-xs font-semibold text-[#0F6B4E]">
@@ -455,31 +563,82 @@ export function CourseRecommender({
                             {tag}
                           </span>
                         ))}
+
+                        {course.courseEvalUrl && (
+                          <a
+                            href={course.courseEvalUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium text-[#003262] hover:underline"
+                          >
+                            Course Evals
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                        {course.facultyEvalUrl && (
+                          <a
+                            href={course.facultyEvalUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium text-[#003262] hover:underline"
+                          >
+                            Faculty Evals
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={busyId === course.id}
-                      onClick={() => void handleToggleHaasCourse(rec)}
-                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                        isAdded
-                          ? "border border-[#B7E4D1] bg-[#E6F5EE] text-[#0F6B4E] hover:bg-[#FEECEB] hover:border-[#F5C2BE] hover:text-[#B42318]"
-                          : "bg-[#003262] text-white hover:bg-[#002145]"
-                      }`}
-                    >
-                      {isAdded ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          Added
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-3.5 w-3.5" />
-                          {rec.fitStatus === "swap_unlocks" ? "Add & Prep Swap" : "Add"}
-                        </>
-                      )}
-                    </button>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        disabled={busyId === course.id}
+                        onClick={() => void handleToggleHaasCourse(rec)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                          isAdded
+                            ? "border border-[#B7E4D1] bg-[#E6F5EE] text-[#0F6B4E] hover:bg-[#FEECEB] hover:border-[#F5C2BE] hover:text-[#B42318]"
+                            : "bg-[#003262] text-white hover:bg-[#002145]"
+                        }`}
+                      >
+                        {isAdded ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            Added
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-3.5 w-3.5" />
+                            {rec.fitStatus === "swap_unlocks" ? "Add & Prep Swap" : "Add"}
+                          </>
+                        )}
+                      </button>
+
+                      {isAdded &&
+                        semesterId === "Y1_Spring" &&
+                        course.olrRoundId === OLR_SPRING_2027_RULES.roundId &&
+                        onUpdatePlannedBid && (
+                          <label className="flex items-center gap-1.5 text-xs text-[#3D4F63]">
+                            <span>Bid</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={OLR_SPRING_2027_RULES.maxBidPoints}
+                              aria-label={`Planned bid points for ${course.code}`}
+                              value={profile.plannedBids?.[course.id] ?? ""}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const raw = Number(e.target.value);
+                                void onUpdatePlannedBid(
+                                  course.id,
+                                  Number.isFinite(raw) ? raw : 0,
+                                );
+                              }}
+                              className="w-16 rounded-md border border-[#CBD5E1] bg-white px-2 py-1 text-right font-mono text-xs text-[#0F1E30] outline-none focus:border-[#003262]"
+                            />
+                            <span className="font-mono text-xs text-[#55687D]">pts</span>
+                          </label>
+                        )}
+                    </div>
                   </div>
                 </article>
               );

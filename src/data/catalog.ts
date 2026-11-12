@@ -108,3 +108,11 @@ export function berkeleyClassToPlannedRecord(
     format: `${cls.semester} ${cls.year} (Campus)`,
   };
 }
+
+export const OLR_SPRING_2027_RULES = {
+  roundId: 932,
+  roundLabel: "Spring 2027 First-Year Bidding",
+  maxBidPoints: 1000,
+  maxSpringUnits: 13,
+  olrUrl: "https://olr.haas.berkeley.edu/Bidding/Bidding?intProcessID=932",
+} as const;

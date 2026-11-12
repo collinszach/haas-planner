@@ -52,6 +52,13 @@ export interface CatalogCourse {
   bidOutHistory: string[];
   bidRisk: BidRiskLevel;
   dataSource: "haas" | "berkeley" | "custom";
+  // Haas OLR Round Metadata (e.g. intProcessID=932 Spring 2027 First-Year Bidding)
+  olrRoundId?: number;
+  olrCapacity?: number;
+  olrFilled?: number;
+  olrAvailable?: number;
+  courseEvalUrl?: string | null;
+  facultyEvalUrl?: string | null;
 }
 
 export interface BerkeleyClassResult {

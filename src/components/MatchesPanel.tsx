@@ -21,7 +21,7 @@ interface MatchesPanelProps {
   onCancelRequest: (requestId: string) => Promise<void>;
   onMarkSubmitted: (matchId: string) => Promise<void>;
   onMarkConfirmed: (matchId: string) => Promise<void>;
-  onConfirmExternalRequest?: (requestId: string) => Promise<void>;
+  onConfirmExternalRequest?: (requestId: string, receivedKey?: string) => Promise<void>;
   onReleaseMatch: (matchId: string, reason: string) => Promise<void>;
 }
 
@@ -39,6 +39,7 @@ export function MatchesPanel({
   const [releasingId, setReleasingId] = useState<string | null>(null);
   const [releaseReason, setReleaseReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedTargets, setSelectedTargets] = useState<Record<string, string>>({});
 
   const activeRequests = requests
     .filter((r) => r.status === "active")
@@ -367,22 +368,46 @@ export function MatchesPanel({
                 </div>
 
                 {ext.status !== "confirmed" && onConfirmExternalRequest && (
-                  <button
-                    type="button"
-                    disabled={busyId === ext.id}
-                    onClick={async () => {
-                      setBusyId(ext.id);
-                      try {
-                        await onConfirmExternalRequest(ext.id);
-                      } finally {
-                        setBusyId(null);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Confirm Swap &amp; Update Schedule
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {ext.wantedKeys.length > 1 && (
+                      <select
+                        aria-label={`Select confirmed section for ${ext.course ?? "external swap"}`}
+                        value={selectedTargets[ext.id] ?? ext.wantedKeys[0] ?? ""}
+                        onChange={(e) =>
+                          setSelectedTargets((prev) => ({
+                            ...prev,
+                            [ext.id]: e.target.value,
+                          }))
+                        }
+                        className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30]"
+                      >
+                        {ext.wantedKeys.map((k) => (
+                          <option key={k} value={k}>
+                            {formatSwapKey(k)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busyId === ext.id}
+                      onClick={async () => {
+                        setBusyId(ext.id);
+                        try {
+                          await onConfirmExternalRequest(
+                            ext.id,
+                            selectedTargets[ext.id] ?? ext.wantedKeys[0],
+                          );
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Confirm Swap &amp; Shift Schedule
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
@@ -440,14 +465,58 @@ export function MatchesPanel({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => onCancelRequest(req.id)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#3D4F63] hover:border-[#F5C2BE] hover:text-[#B42318]"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Withdraw
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {onConfirmExternalRequest && req.wantedKeys.length > 0 && (
+                    <>
+                      {req.wantedKeys.length > 1 && (
+                        <select
+                          aria-label={`Select confirmed section for ${req.course ?? "swap request"}`}
+                          value={selectedTargets[req.id] ?? req.wantedKeys[0] ?? ""}
+                          onChange={(e) =>
+                            setSelectedTargets((prev) => ({
+                              ...prev,
+                              [req.id]: e.target.value,
+                            }))
+                          }
+                          className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30]"
+                        >
+                          {req.wantedKeys.map((k) => (
+                            <option key={k} value={k}>
+                              {formatSwapKey(k)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busyId === req.id}
+                        onClick={async () => {
+                          setBusyId(req.id);
+                          try {
+                            await onConfirmExternalRequest(
+                              req.id,
+                              selectedTargets[req.id] ?? req.wantedKeys[0],
+                            );
+                          } finally {
+                            setBusyId(null);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-[#0F6B4E] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0B533C] disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Confirm &amp; Shift
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onCancelRequest(req.id)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#3D4F63] hover:border-[#F5C2BE] hover:text-[#B42318]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Withdraw
+                  </button>
+                </div>
               </div>
             ))}
           </div>

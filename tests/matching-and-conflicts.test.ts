@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { catalogCourseToPlannedRecord, SPRING_2027_COURSES } from "@/data/catalog";
+import {
+  catalogCourseToPlannedRecord,
+  OLR_SPRING_2027_RULES,
+  SPRING_2027_COURSES,
+} from "@/data/catalog";
 import { DEMO_PROFILES } from "@/data/demoSeed";
 import {
   applyCatalogUpdates,
@@ -700,5 +704,111 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     });
     expect(recs.length).toBeGreaterThan(20);
     expect(recs[0]?.fills.length).toBeGreaterThan(0);
+  });
+
+  it("shifts schedule and removes Ethics swap recommendation when submitted Ethics swap is confirmed", () => {
+    // MBA224A.1 meets Wed 2:00-4:00 PM (Full), colliding with Gold Ethics-207.2B (Wed 2:00-4:00 PM Spring B)
+    const wed2PmElective = SPRING_2027_COURSES.find((c) => c.code === "MBA224A.1");
+    expect(wed2PmElective).toBeDefined();
+
+    // Gold cohort Ethics default is Ethics-207.2B (Wed 2:00-4:00 PM Spring B)
+    const studentA = makeProfile({
+      id: "user-ethics-a",
+      homeCohort: "Gold",
+      plannedCourses: wed2PmElective
+        ? [catalogCourseToPlannedRecord(wed2PmElective, "Y1_Spring")]
+        : [],
+    });
+    const studentB = makeProfile({
+      id: "user-ethics-b",
+      homeCohort: "Blue",
+    });
+
+    const diagBefore = autoGenerateSwapsFromPlan({ profile: studentA });
+    expect(diagBefore.legs.some((l) => l.course === "Ethics")).toBe(true);
+
+    const reqA: SwapRequest = {
+      id: "req-ethics-a",
+      userId: studentA.id,
+      bundleId: null,
+      swapType: "single",
+      course: "Ethics",
+      givingUpKey: "Ethics-207.2B", // gitleaks:allow
+      wantedKeys: ["Ethics-207.1B"], // gitleaks:allow
+      notes: "Overlap with Spring B Tue elective",
+      status: "submitted",
+      queuePriorityAt: "2026-11-12T00:00:00Z",
+      createdAt: "2026-11-12T00:00:00Z",
+      updatedAt: "2026-11-12T00:00:00Z",
+    };
+    const reqB: SwapRequest = {
+      id: "req-ethics-b",
+      userId: studentB.id,
+      bundleId: null,
+      swapType: "single",
+      course: "Ethics",
+      givingUpKey: "Ethics-207.1B", // gitleaks:allow
+      wantedKeys: ["Ethics-207.2B"], // gitleaks:allow
+      notes: "",
+      status: "submitted",
+      queuePriorityAt: "2026-11-12T00:00:00Z",
+      createdAt: "2026-11-12T00:00:00Z",
+      updatedAt: "2026-11-12T00:00:00Z",
+    };
+
+    const initialState: MatchEngineState = {
+      profiles: { [studentA.id]: studentA, [studentB.id]: studentB },
+      requests: [reqA, reqB],
+      matches: [
+        {
+          id: "match-ethics-1",
+          bundleMatchGroupId: null,
+          requestAId: reqA.id,
+          requestBId: reqB.id,
+          userAId: studentA.id,
+          userBId: studentB.id,
+          swapType: "single",
+          course: "Ethics",
+          userAGivesKey: "Ethics-207.2B", // gitleaks:allow
+          userBGivesKey: "Ethics-207.1B", // gitleaks:allow
+          userARank: 1,
+          userBRank: 1,
+          status: "submitted",
+          confirmedByA: false,
+          confirmedByB: false,
+          submittedByUserId: studentA.id,
+          cancelledByUserId: null,
+          cancelReason: null,
+          emailSentA: true,
+          emailSentB: true,
+          createdAt: "2026-11-12T00:00:00Z",
+          submittedAt: "2026-11-12T00:00:00Z",
+        },
+      ],
+    };
+
+    const afterConfirm = confirmMatchInMemory(initialState, "match-ethics-1", studentA.id);
+    const updatedA = afterConfirm.profiles[studentA.id];
+    expect(updatedA?.currentSections.Ethics).toBe("Ethics-207.1B"); // gitleaks:allow
+
+    const diagAfter = autoGenerateSwapsFromPlan({ profile: updatedA! });
+    expect(diagAfter.legs.some((l) => l.course === "Ethics")).toBe(false);
+  });
+
+  it("includes Haas OLR Spring 2027 bidding round 932 seat counts, rules, and new courses", () => {
+    expect(OLR_SPRING_2027_RULES.roundId).toBe(932);
+    expect(OLR_SPRING_2027_RULES.maxBidPoints).toBe(1000);
+    expect(OLR_SPRING_2027_RULES.maxSpringUnits).toBe(13);
+
+    const dealStructuring = SPRING_2027_COURSES.find((c) => c.code === "MBA285.1DEL");
+    expect(dealStructuring).toBeDefined();
+    expect(dealStructuring?.olrRoundId).toBe(932);
+    expect(dealStructuring?.olrCapacity).toBe(16);
+    expect(dealStructuring?.olrAvailable).toBe(9);
+
+    const pricing = SPRING_2027_COURSES.find((c) => c.code === "MBA269.1");
+    expect(pricing).toBeDefined();
+    expect(pricing?.olrAvailable).toBe(0);
+    expect(pricing?.olrCapacity).toBe(74);
   });
 });

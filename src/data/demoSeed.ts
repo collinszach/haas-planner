@@ -19,6 +19,7 @@ export const DEMO_PROFILES: Record<string, StudentProfile> = {
     degreeTrack: "FTMBA",
     targetCertificates: ["BA"],
     plannedCourses: [],
+    plannedBids: {},
   },
   "demo-liam": {
     id: "demo-liam",
@@ -35,6 +36,7 @@ export const DEMO_PROFILES: Record<string, StudentProfile> = {
     degreeTrack: "FTMBA",
     targetCertificates: ["AI"],
     plannedCourses: [],
+    plannedBids: {},
   },
   "demo-sofia": {
     id: "demo-sofia",
@@ -51,6 +53,7 @@ export const DEMO_PROFILES: Record<string, StudentProfile> = {
     degreeTrack: "FTMBA",
     targetCertificates: ["SB"],
     plannedCourses: [],
+    plannedBids: {},
   },
   "demo-noah": {
     id: "demo-noah",
@@ -67,6 +70,7 @@ export const DEMO_PROFILES: Record<string, StudentProfile> = {
     degreeTrack: "FTMBA",
     targetCertificates: [],
     plannedCourses: [],
+    plannedBids: {},
   },
 };
 

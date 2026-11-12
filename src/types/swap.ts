@@ -83,6 +83,7 @@ export interface StudentProfile {
   degreeTrack?: DegreeTrack;
   targetCertificates?: CertificateCode[];
   plannedCourses?: PlannedCourseRecord[];
+  plannedBids?: Record<string, number>;
 }
 
 export type SwapStatus =
