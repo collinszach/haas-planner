@@ -60,7 +60,7 @@ Deno.serve(async (req: Request) => {
     const year = body.year ?? 2026;
     const semester = body.semester ?? "Fall";
     const page = Math.max(1, body.page ?? 1);
-    const pageSize = Math.min(25, Math.max(1, body.pageSize ?? 15));
+    const pageSize = Math.min(100, Math.max(1, body.pageSize ?? 50));
 
     if (!search) {
       return new Response(JSON.stringify({ results: [], totalCount: 0 }), {
@@ -68,34 +68,45 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const res = await fetch(BERKELEYTIME_GRAPHQL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: GET_CATALOG_SEARCH_ID,
-        variables: {
-          year,
-          semester,
-          search,
-          page,
-          pageSize,
-        },
-      }),
-    });
+    const fetchPage = async (p: number) => {
+      const res = await fetch(BERKELEYTIME_GRAPHQL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: GET_CATALOG_SEARCH_ID,
+          variables: {
+            year,
+            semester,
+            search,
+            page: p,
+            pageSize,
+          },
+        }),
+      });
+      if (!res.ok) return { results: [], totalCount: 0 };
+      const data = await res.json();
+      return {
+        results: data?.data?.catalogSearch?.results ?? [],
+        totalCount: data?.data?.catalogSearch?.totalCount ?? 0,
+      };
+    };
 
-    if (!res.ok) {
-      return new Response(
-        JSON.stringify({ error: `Berkeleytime returned HTTP ${res.status}` }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+    const firstPage = await fetchPage(page);
+    let rawResults = firstPage.results;
+    const totalCount = firstPage.totalCount;
+
+    // For large departments with >100 courses, fetch page 2 in parallel so seminars
+    // and special topics courses (like 290, 292, 298) are never truncated.
+    if (page === 1 && totalCount > 100 && rawResults.length === 100) {
+      try {
+        const secondPage = await fetchPage(2);
+        if (Array.isArray(secondPage.results) && secondPage.results.length > 0) {
+          rawResults = [...rawResults, ...secondPage.results];
+        }
+      } catch {
+        // Non-fatal, use first page results
+      }
     }
-
-    const payload = await res.json();
-    const rawResults = payload?.data?.catalogSearch?.results ?? [];
-    const totalCount = payload?.data?.catalogSearch?.totalCount ?? 0;
 
     // Optionally enrich top 8 results with instructor names via GetClass in parallel
     const normalized = await Promise.all(
@@ -104,7 +115,12 @@ Deno.serve(async (req: Request) => {
         const courseNumber = String(item.courseNumber ?? "");
         const sectionNumber = String(item.number ?? "001");
         const sessionId = String(item.sessionId ?? "1");
-        const title = String(item.courseTitle ?? item.title ?? "");
+        const courseTitle = String(item.courseTitle ?? "");
+        const topicTitle = String(item.title ?? "");
+        const title =
+          topicTitle && topicTitle !== "null" && topicTitle !== courseTitle
+            ? `${courseTitle}: ${topicTitle}`
+            : (courseTitle || topicTitle || "Special Topics");
         const units = Number(item.unitsMax ?? item.unitsMin ?? 3) || 3;
 
         const meetingsRaw = Array.isArray(item.meetings)

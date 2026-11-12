@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeCourseDemandFromProfiles } from "@/lib/api";
+import { searchBerkeleyCourses } from "@/lib/berkeleyApi";
 import {
   berkeleyClassToCatalogCourse,
   catalogCourseToPlannedRecord,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/conflicts";
 import {
   autoGenerateSwapsFromPlan,
+  evaluateCourseFit,
   recommendCoursesForSemester,
 } from "@/lib/courseRecommender";
 import {
@@ -1468,5 +1470,67 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     const mbaDept = ALL_BERKELEY_DEPARTMENTS.find((d) => d.code === "MBA");
     expect(mbaDept).toBeDefined();
     expect(mbaDept?.name).toContain("Haas");
+  });
+
+  it("resolves MECENG 292C-001 graduate course, normalizes section queries, and detects schedule collisions", async () => {
+    // 1. Verify MECENG 292C is recognized as a graduate course (200+)
+    expect(isGraduateCourse("292C")).toBe(true);
+    expect(isGraduateCourse("MECENG 292C")).toBe(true);
+    expect(isGraduateCourse("MECENG 292C-001")).toBe(true);
+    expect(isGraduateCourse("MECENG 292C.001")).toBe(true);
+
+    // 2. Fetch MECENG 292C directly
+    const res = await searchBerkeleyCourses({
+      query: "MECENG 292C",
+      semester: "Spring",
+      year: 2027,
+    });
+    expect(res.results.length).toBeGreaterThan(0);
+    const meceng292 = res.results.find((c) => c.courseNumber === "292C");
+    expect(meceng292).toBeDefined();
+    expect(meceng292?.subject).toBe("MECENG");
+    expect(meceng292?.sectionNumber).toBe("001");
+    expect(meceng292?.dayLabel).toBe("Tue/Thu");
+    expect(meceng292?.timeLabel).toBe("8:00 AM–9:30 AM");
+
+    // 3. Convert to CatalogCourse and evaluate fit against a schedule with Tuesday 9:00 AM Entrepreneurship
+    const catCourse = berkeleyClassToCatalogCourse(meceng292!, "Y1_Spring");
+    expect(catCourse.code).toBe("MECENG 292C");
+
+    // Create a student profile with MBA295A.1 Entrepreneurship (Tue 9:00-11:00 AM)
+    const profileWithEntre = makeProfile({
+      plannedCourses: [
+        {
+          instanceId: "p-entre",
+          courseId: "mba-295a-1",
+          code: "MBA295A.1",
+          name: "Entrepreneurship",
+          units: 3,
+          instructors: "Haghavan, Sharat",
+          dayLabel: "Tue",
+          timeLabel: "9:00 AM–11:00 AM",
+          part: "Full",
+          meetings: [{ days: ["Tue"], startMin: 540, endMin: 660, part: "Full" }],
+          semesterId: "Y1_Spring",
+          isCore: false,
+          experiential: false,
+          businessTech: true,
+          certificates: [],
+          status: "planned",
+          dataSource: "haas",
+        },
+      ],
+    });
+
+    const fit = evaluateCourseFit({
+      course: catCourse,
+      semesterId: "Y1_Spring",
+      profile: profileWithEntre,
+      marketPulse: [],
+    });
+
+    // MECENG 292C-001 meets 8:00 AM - 9:30 AM on Tue/Thu, which directly collides with Tue 9:00 AM - 11:00 AM
+    expect(fit.fitStatus).toBe("conflict");
+    expect(fit.conflictReasons.some((r) => r.toLowerCase().includes("entrepreneurship") || r.toLowerCase().includes("mba295a"))).toBe(true);
   });
 });

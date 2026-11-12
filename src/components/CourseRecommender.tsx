@@ -115,6 +115,41 @@ export function CourseRecommender({
     return () => window.removeEventListener("haas_catalog_updated", handler);
   }, []);
 
+  // Live on-demand campus course search when a user types a course query (e.g. "MECENG 292C", "292C", "INFO 290")
+  const [searchCampusResults, setSearchCampusResults] = useState<BerkeleyClassResult[]>([]);
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 3) {
+      setSearchCampusResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const btSeason: "Fall" | "Spring" =
+        semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
+      const btYear = semesterId === "Y1_Fall" ? 2026 : 2027;
+
+      setIsSearchingLive(true);
+      try {
+        const res = await searchBerkeleyCourses({
+          query: trimmed,
+          semester: btSeason,
+          year: btYear,
+        });
+        const gradOnly = res.results.filter((cls) => isGraduateCourse(cls.courseNumber));
+        setSearchCampusResults(gradOnly);
+      } catch (err) {
+        console.error("Live course search error:", err);
+      } finally {
+        setIsSearchingLive(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query, semesterId]);
+
   // Fetch campus department courses for the active semester when a user adds a non-MBA dept
   const fetchDeptCourses = async (deptCode: string) => {
     if (deptCode === "MBA" || campusCoursesByDept[deptCode]) return;
@@ -207,29 +242,35 @@ export function CourseRecommender({
     });
   }, [semesterId, profile, marketPulse, sections, catalogVersion, selectedDepts]);
 
-  // 2. Non-MBA Campus recommendations for any selected graduate departments
+  // 2. Non-MBA Campus recommendations for any selected graduate departments + live search results
   const campusRecommendations = useMemo(() => {
     const nonMbaDepts = selectedDepts.filter((d) => d !== "MBA");
-    if (nonMbaDepts.length === 0) return [];
-
-    const recs: CourseRecommendation[] = [];
+    const deptClasses: BerkeleyClassResult[] = [];
     for (const dept of nonMbaDepts) {
-      const classes = campusCoursesByDept[dept] ?? [];
-      for (const cls of classes) {
-        if (!isGraduateCourse(cls.courseNumber)) continue;
-        const catCourse = berkeleyClassToCatalogCourse(cls, semesterId);
-        const rec = evaluateCourseFit({
-          course: catCourse,
-          semesterId,
-          profile,
-          marketPulse,
-          activeSections: sections.length > 0 ? sections : undefined,
-        });
-        recs.push(rec);
-      }
+      deptClasses.push(...(campusCoursesByDept[dept] ?? []));
+    }
+
+    // Combine with live on-demand search results
+    const combinedClasses = [...deptClasses, ...searchCampusResults];
+    const seenIds = new Set<string>();
+    const recs: CourseRecommendation[] = [];
+
+    for (const cls of combinedClasses) {
+      if (seenIds.has(cls.id)) continue;
+      seenIds.add(cls.id);
+      if (!isGraduateCourse(cls.courseNumber)) continue;
+      const catCourse = berkeleyClassToCatalogCourse(cls, semesterId);
+      const rec = evaluateCourseFit({
+        course: catCourse,
+        semesterId,
+        profile,
+        marketPulse,
+        activeSections: sections.length > 0 ? sections : undefined,
+      });
+      recs.push(rec);
     }
     return recs;
-  }, [selectedDepts, campusCoursesByDept, semesterId, profile, marketPulse, sections]);
+  }, [selectedDepts, campusCoursesByDept, searchCampusResults, semesterId, profile, marketPulse, sections]);
 
   // Combined unified catalog
   const allRecommendations = useMemo(() => {
@@ -375,8 +416,10 @@ export function CourseRecommender({
     }
 
     const list = baseList.filter((rec) => {
-      if (effectiveFitView === "fits" && rec.fitStatus !== "fits") return false;
-      if (effectiveFitView === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
+      // If no search query is typed, respect the strict tab view
+      if (!q && effectiveFitView === "fits" && rec.fitStatus !== "fits") return false;
+      if (!q && effectiveFitView === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
+      if (effectiveFitView === "swap_unlocks" && q && rec.fitStatus !== "swap_unlocks") return false;
       if (categoryFilter === "EL" && !rec.course.experiential) return false;
       if (categoryFilter === "BT" && !rec.course.businessTech) return false;
       if (
@@ -388,9 +431,11 @@ export function CourseRecommender({
         return false;
       }
       if (q) {
+        const cleanQ = q.replace(/[-_.]/g, " ");
         const hay =
-          `${rec.course.code} ${rec.course.name} ${rec.course.instructors} ${rec.course.dayLabel} ${rec.course.timeLabel} ${rec.course.part} ${rec.course.primaryFunction ?? ""} ${rec.course.primaryIndustry ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
+          `${rec.course.id} ${rec.course.code} ${rec.course.baseCode} ${rec.course.name} ${rec.course.instructors} ${rec.course.dayLabel} ${rec.course.timeLabel} ${rec.course.part} ${rec.course.primaryFunction ?? ""} ${rec.course.primaryIndustry ?? ""}`.toLowerCase();
+        const cleanHay = hay.replace(/[-_.]/g, " ");
+        if (!hay.includes(q) && !cleanHay.includes(cleanQ)) return false;
       }
       return true;
     });
@@ -503,13 +548,17 @@ export function CourseRecommender({
           {/* Top Row: Search Input + Dept Dropdown + Requirement + Sort */}
           <div className="flex flex-wrap gap-1.5">
             <div className="relative flex-1 min-w-[160px]">
-              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
+              {isSearchingLive ? (
+                <div className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#003262] border-t-transparent" />
+              ) : (
+                <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
+              )}
               <input
                 type="search"
                 aria-label="Search courses"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search code, title, prof..."
+                placeholder="Search code (e.g. MECENG 292C), title, prof..."
                 className="h-8 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
               />
             </div>
@@ -757,6 +806,13 @@ export function CourseRecommender({
           </div>
         )}
 
+        {/* Search Results Notice for Conflicts */}
+        {query.trim().length > 0 && filtered.some((r) => r.fitStatus === "conflict") && (
+          <div className="border-b border-[#FEF3C7] bg-[#FFFBEB] px-4 py-2 text-xs text-[#92400E] sm:px-5">
+            Showing search results including courses with a schedule conflict (highlighted with <strong>Time Conflict</strong>).
+          </div>
+        )}
+
         {filtered.length === 0 ? (
           <div className="space-y-2 p-8 text-center text-xs text-[#6E6E73]">
             {effectiveFitView === "planned" ? (
@@ -866,9 +922,9 @@ export function CourseRecommender({
                         </span>
                       )}
 
-                      {rec.fitStatus === "conflict" && effectiveFitView === "all" && (
-                        <span className="inline-flex items-center gap-1 rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10.5px] font-medium text-[#8A5300]">
-                          Conflict
+                      {rec.fitStatus === "conflict" && (
+                        <span className="inline-flex items-center gap-1 rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#8A5300]">
+                          Time Conflict
                         </span>
                       )}
                     </div>
@@ -946,6 +1002,11 @@ export function CourseRecommender({
                     {rec.fitStatus === "swap_unlocks" && rec.requiredSwaps.length > 0 && (
                       <div className="text-[11px] text-[#0369A1]">
                         Unlocks if: {rec.requiredSwaps[0]?.reason}
+                      </div>
+                    )}
+                    {rec.fitStatus === "conflict" && rec.conflictReasons.length > 0 && (
+                      <div className="text-[11px] text-[#B45309]">
+                        ⚠️ {rec.conflictReasons[0]}
                       </div>
                     )}
                   </div>

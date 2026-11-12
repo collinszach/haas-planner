@@ -194,6 +194,32 @@ const CURATED_BERKELEY_FALLBACK: BerkeleyClassResult[] = [
     sourceMode: "fallback",
   },
   {
+    id: "BT-2027Spring-MECENG-292C-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "MECENG",
+    courseNumber: "292C",
+    sectionNumber: "001",
+    title: "Advanced Special Topics in Design: Advanced Product Development",
+    units: 3,
+    instructors: "Alice Agogino, Kameshwar Poolla",
+    averageGrade: 3.89,
+    enrolledCount: 53,
+    maxEnroll: 100,
+    dayLabel: "Tue/Thu",
+    timeLabel: "8:00 AM–9:30 AM",
+    meetings: [{ days: ["Tue", "Thu"], startMin: 480, endMin: 570, part: "Full" }],
+    evaluation: {
+      courseWorth: 7.0,
+      instructorEffectiveness: 6.8,
+      difficulty: 1.4,
+      evalTerm: "Berkeleytime (scaled /7)",
+      comments: [],
+      source: "berkeleytime",
+    },
+    sourceMode: "fallback",
+  },
+  {
     id: "BT-2027Spring-LAW-278-001",
     year: 2027,
     semester: "Spring",
@@ -260,7 +286,7 @@ export async function searchBerkeleyCourses(params: {
         const { data, error } = await supabase.functions.invoke(
           "search-berkeley-courses",
           {
-            body: { search: searchQuery, semester, year, page: 1, pageSize: 25 },
+            body: { search: searchQuery, semester, year, page: 1, pageSize: 100 },
           },
         );
         if (!error && Array.isArray(data?.results)) {
@@ -274,8 +300,6 @@ export async function searchBerkeleyCourses(params: {
             }
           }
         }
-        // If we already collected good graduate courses from the 200-level query, break early
-        if (aggregatedResults.length >= 8) break;
       }
 
       if (aggregatedResults.length > 0) {
