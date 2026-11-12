@@ -47,10 +47,15 @@ import {
   submitAndMatchInMemory,
   type MatchEngineState,
 } from "@/lib/matcher";
+import {
+  buildCalendarExportEvents,
+  generateGoogleCalendarEventUrl,
+  generateIcsFileContent,
+} from "@/lib/googleCalendar";
 import { auditLegacyGoogleSheetCsv } from "@/lib/sheetAuditor";
 import { buildSwapAdvisorReport } from "@/lib/swapAdvisor";
 import { meetingsOverlap, normalizeSlotTokens } from "@/lib/timeSlots";
-import type { StudentProfile, SwapRequest } from "@/types/swap";
+import type { PlannedCourseRecord, StudentProfile, SwapRequest } from "@/types/swap";
 
 function makeProfile(overrides: Partial<StudentProfile>): StudentProfile {
   const cohort = overrides.homeCohort ?? "Blue";
@@ -1329,5 +1334,99 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(mphAudit.programUnitTarget).toBe(67);
     expect(mphAudit.nonHaasCap).toBe(22);
     expect(mphAudit.nonHaasUnits).toBe(3);
+  });
+
+  it("exports planned schedule to Google Calendar web intents and universal .ics calendar files", () => {
+    const plannedEntries: PlannedCourseRecord[] = [
+      {
+        instanceId: "inst-corpfin",
+        semesterId: "Y1_Spring",
+        courseId: "Spring-MBA231.2",
+        code: "MBA231.2",
+        name: "Corporate Finance",
+        units: 3,
+        instructors: "Manso, G.",
+        part: "Full",
+        meetings: [
+          {
+            days: ["Mon", "Wed"],
+            startMin: 11 * 60, // 11:00 AM
+            endMin: 12 * 60 + 30, // 12:30 PM
+            room: "N370 Chou",
+            part: "Full",
+          },
+        ],
+        status: "planned",
+        isCore: false,
+        certificates: [],
+        dataSource: "haas",
+      },
+      {
+        instanceId: "inst-macro",
+        semesterId: "Y1_Spring",
+        courseId: "Macro-201B.1A",
+        code: "MBA 201B.1A",
+        name: "Macroeconomics in the Global Economy",
+        units: 2,
+        instructors: "Chodorow-Reich, G.",
+        part: "A",
+        meetings: [
+          {
+            days: ["Mon", "Wed"],
+            startMin: 9 * 60, // 9:00 AM
+            endMin: 11 * 60, // 11:00 AM
+            room: "N470",
+            part: "A",
+          },
+          {
+            days: ["Fri"],
+            startMin: 9 * 60, // 9:00 AM
+            endMin: 10 * 60 + 30, // 10:30 AM
+            room: "N470",
+            kind: "discussion",
+            part: "A",
+          },
+        ],
+        status: "planned",
+        isCore: true,
+        certificates: [],
+        dataSource: "haas",
+      },
+    ];
+
+    // 1. Build calendar export events
+    const events = buildCalendarExportEvents(plannedEntries, "Y1_Spring");
+    expect(events.length).toBe(3); // 1 lecture for MBA231.2 + 1 lecture for Macro + 1 Friday discussion for Macro
+
+    const corpFinEvent = events.find((e) => e.courseCode.includes("MBA231.2"));
+    expect(corpFinEvent).toBeDefined();
+    expect(corpFinEvent?.courseName).toBe("Corporate Finance");
+    expect(corpFinEvent?.instructors).toBe("Manso, G.");
+    expect(corpFinEvent?.location).toContain("N370 Chou");
+    expect(corpFinEvent?.rruleDays).toEqual(["MO", "WE"]);
+    expect(corpFinEvent?.untilDateStr).toContain("202705"); // Spring 2027 end date
+
+    // 2. Google Calendar Web Intent URL generation
+    const gcalUrl = generateGoogleCalendarEventUrl(corpFinEvent!);
+    expect(gcalUrl).toContain("https://calendar.google.com/calendar/render");
+    expect(gcalUrl).toContain("action=TEMPLATE");
+    expect(gcalUrl).toContain("Corporate+Finance");
+    expect(gcalUrl).toContain("RRULE%3AFREQ%3DWEEKLY");
+    expect(gcalUrl).toContain("ctz=America%2FLos_Angeles");
+
+    // 3. RFC 5545 iCalendar content generation
+    const icsContent = generateIcsFileContent(events, "Haas MBA - Spring 2027");
+    expect(icsContent).toContain("BEGIN:VCALENDAR");
+    expect(icsContent).toContain("VERSION:2.0");
+    expect(icsContent).toContain("PRODID:-//UC Berkeley Haas//Haas Course Planner//EN");
+    expect(icsContent).toContain("X-WR-CALNAME:Haas MBA - Spring 2027");
+    expect(icsContent).toContain("BEGIN:VTIMEZONE");
+    expect(icsContent).toContain("TZID:America/Los_Angeles");
+    expect(icsContent).toContain("BEGIN:VEVENT");
+    expect(icsContent).toContain("SUMMARY:[Haas] MBA231.2 Corporate Finance");
+    expect(icsContent).toContain("RRULE:FREQ=WEEKLY;BYDAY=MO,WE");
+    expect(icsContent).toContain("LOCATION:N370 Chou");
+    expect(icsContent).toContain("END:VEVENT");
+    expect(icsContent).toContain("END:VCALENDAR");
   });
 });

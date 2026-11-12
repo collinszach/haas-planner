@@ -3,7 +3,12 @@ import { createPortal } from "react-dom";
 import { formatSwapKey, SECTIONS, SECTION_BY_ID } from "@/data/sections";
 import { ALL_HAAS_COURSES } from "@/data/catalog";
 import { getStoredCustomCourses } from "@/lib/courseCatalogManager";
+import { GoogleCalendarExportModal } from "@/components/GoogleCalendarExportModal";
 import { buildUnifiedPlanEntries } from "@/lib/degreeAudit";
+import {
+  buildCalendarExportEvents,
+  generateGoogleCalendarEventUrl,
+} from "@/lib/googleCalendar";
 import {
   formatMinutes12h,
   formatTimeRangeCompact,
@@ -30,6 +35,7 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Ban,
+  Calendar,
   Clock,
   Eraser,
   ExternalLink,
@@ -170,6 +176,7 @@ export function HalfHourGrid({
   const [paintMode, setPaintMode] = useState<"add" | "remove" | null>(null);
   const [draftTokens, setDraftTokens] = useState<string[] | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<PlacedBlock | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const sectionLookup = useMemo(
     () => Object.fromEntries(sections.map((s) => [s.id, s])),
@@ -190,6 +197,21 @@ export function HalfHourGrid({
       (e) => e.semesterId === semesterId && !e.waived,
     );
   }, [profile, sections, semesterId]);
+
+  const semesterExportEvents = useMemo(() => {
+    return buildCalendarExportEvents(semesterEntries, semesterId);
+  }, [semesterEntries, semesterId]);
+
+  const selectedBlockGcalUrl = useMemo(() => {
+    if (!selectedBlock) return null;
+    const match = semesterExportEvents.find(
+      (e) =>
+        selectedBlock.key.startsWith(e.id) ||
+        e.courseCode.includes(selectedBlock.code) ||
+        selectedBlock.code.includes(e.courseCode),
+    );
+    return match ? generateGoogleCalendarEventUrl(match) : null;
+  }, [selectedBlock, semesterExportEvents]);
 
   const { placedBlocks, nonGridEntries, hasWaitingSwaps } = useMemo(() => {
     const blocks: PlacedBlock[] = [];
@@ -637,6 +659,16 @@ export function HalfHourGrid({
               Part B (Wks 8–14)
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowExportModal(true)}
+            aria-label="Export schedule to Google Calendar"
+            className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#003262]/20 bg-[#003262]/5 px-2.5 py-1 text-xs font-semibold text-[#003262] transition hover:bg-[#003262]/10"
+          >
+            <Calendar className="h-3.5 w-3.5 text-[#003262]" />
+            <span>Export to Google Calendar</span>
+          </button>
 
           {supportsBlockedOverlay && activeTermBlockedTokens.length > 0 && (
             <button
@@ -1130,19 +1162,30 @@ export function HalfHourGrid({
 
               {/* Actions Footer */}
               <div className="flex items-center justify-between border-t border-[#E5E5EA] pt-3">
-                {selectedBlock.syllabusUrl ? (
-                  <a
-                    href={selectedBlock.syllabusUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-[#003262] hover:underline"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    <span>View Syllabus</span>
-                  </a>
-                ) : (
-                  <div />
-                )}
+                <div className="flex items-center gap-3">
+                  {selectedBlock.syllabusUrl && (
+                    <a
+                      href={selectedBlock.syllabusUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#003262] hover:underline"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span>View Syllabus</span>
+                    </a>
+                  )}
+                  {selectedBlockGcalUrl && (
+                    <a
+                      href={selectedBlockGcalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#003262] hover:underline"
+                    >
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>Add to Google Calendar</span>
+                    </a>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   {selectedBlock.removableInstanceId && (
@@ -1172,6 +1215,13 @@ export function HalfHourGrid({
           </div>,
           document.body,
         )}
+
+      <GoogleCalendarExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        semesterId={semesterId}
+        plannedEntries={semesterEntries}
+      />
     </section>
   );
 }
