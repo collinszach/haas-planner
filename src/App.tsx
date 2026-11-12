@@ -9,7 +9,6 @@ import { MarketPulse } from "@/components/MarketPulse";
 import { MatchesPanel } from "@/components/MatchesPanel";
 import { Navbar, type AppTab } from "@/components/Navbar";
 import { ProfileSetup } from "@/components/ProfileSetup";
-import { SwapBuilder, type SwapBuilderPreset } from "@/components/SwapBuilder";
 import { DEFAULT_SECTIONS, DEFAULT_SWAP_WINDOWS } from "@/data/sections";
 import {
   adminResetAcademicYear,
@@ -84,9 +83,7 @@ export function App() {
   const [activeSemester, setActiveSemester] = useState<SemesterId>("Y1_Spring");
   const [editingProfile, setEditingProfile] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [advisorPreset] = useState<SwapBuilderPreset | null>(null);
 
-  const swapBuilderRef = useRef<HTMLDivElement>(null);
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const activeUidRef = useRef<string | null>(null);
@@ -670,37 +667,26 @@ export function App() {
 
             {currentTab === "swaps" && (
               <div className="space-y-5">
-                <div className="border-b border-[#D8E0EA] pb-3">
-                  <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
-                    Core Swaps &amp; Blind FIFO Queue
-                  </h1>
-                  <p className="mt-0.5 text-xs text-[#55687D]">
-                    Auto-populated swap plans, manual paired/cohort request builder, partner match
-                    details, and real-time queue liquidity.
-                  </p>
-                </div>
-
-                <AutoSwapTray
-                  profile={profile}
-                  sections={sections}
-                  marketPulse={marketPulse}
-                  existingRequests={requests}
-                  matches={matches}
-                  timelineEnded={timelineEnded}
-                  onSubmitSwap={handleSubmitSwap}
-                  onMarkConfirmed={handleMarkConfirmed}
-                  onConfirmExternalRequest={handleConfirmExternalRequest}
-                />
-
-                <div ref={swapBuilderRef} id="swap-builder-form">
-                  <SwapBuilder
-                    profile={profile}
-                    existingRequests={requests}
-                    marketPulse={marketPulse}
-                    advisorPreset={advisorPreset}
-                    timelineEnded={timelineEnded}
-                    onSubmitSwap={handleSubmitSwap}
-                  />
+                <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#D8E0EA] pb-3">
+                  <div>
+                    <h1 className="font-display text-3xl font-bold tracking-tight text-[#003262]">
+                      Core Swaps &amp; Blind FIFO Queue
+                    </h1>
+                    <p className="mt-0.5 text-xs text-[#55687D]">
+                      Partner match details, active queue entries, registrar confirmation status, and
+                      real-time pool liquidity. New swaps submit automatically from the Planner.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSemester("Y1_Spring");
+                      setActiveTab("planner");
+                    }}
+                    className="rounded-lg border border-[#003262] bg-white px-3 py-1.5 text-xs font-semibold text-[#003262] transition hover:bg-[#E8EFF7]"
+                  >
+                    Open Planner to Submit Swaps
+                  </button>
                 </div>
 
                 <MatchesPanel
