@@ -32,7 +32,11 @@ import {
   autoGenerateSwapsFromPlan,
   recommendCoursesForSemester,
 } from "@/lib/courseRecommender";
-import { buildUnifiedPlanEntries, computeDegreeAudit } from "@/lib/degreeAudit";
+import {
+  buildUnifiedPlanEntries,
+  computeDegreeAudit,
+  isGraduateCourse,
+} from "@/lib/degreeAudit";
 import {
   computeAnonymizedQueue,
   computeMarketPulse,
@@ -1190,5 +1194,68 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
       .filter((e) => !e.isCore)
       .reduce((sum, e) => sum + e.units, 0);
     expect(electiveUnits).toBe(4); // 2u MBA252.1 + 2u INFO 206A
+  });
+
+  it("strictly differentiates graduate (200+) courses from undergraduate (<200) for MBA credits", () => {
+    // 1. isGraduateCourse helper checks
+    expect(isGraduateCourse("COMPSCI 280")).toBe(true);
+    expect(isGraduateCourse("MECENG 208")).toBe(true);
+    expect(isGraduateCourse("INFO 206A")).toBe(true);
+    expect(isGraduateCourse("DATA C200")).toBe(true);
+    expect(isGraduateCourse("MBA 252.1")).toBe(true);
+    expect(isGraduateCourse("ENGIN 270B")).toBe(true);
+    expect(isGraduateCourse("LAW 276")).toBe(true);
+
+    // Undergraduate courses (<200)
+    expect(isGraduateCourse("COMPSCI 61A")).toBe(false);
+    expect(isGraduateCourse("ECON 100A")).toBe(false);
+    expect(isGraduateCourse("INFO 159")).toBe(false);
+    expect(isGraduateCourse("UGBA 101A")).toBe(false);
+    expect(isGraduateCourse("MATH 54")).toBe(false);
+    expect(isGraduateCourse("")).toBe(false);
+    expect(isGraduateCourse(undefined)).toBe(false);
+
+    // 2. Degree audit ignores undergrad courses for nonHaasUnits and emits warning
+    const profileWithUndergrad = makeProfile({
+      classYear: "Y1",
+      plannedCourses: [
+        {
+          instanceId: "inst-cs61a",
+          semesterId: "Y1_Spring",
+          courseId: "berkeley:cs61a",
+          code: "COMPSCI 61A",
+          name: "Structure and Interpretation of Computer Programs",
+          units: 4,
+          instructors: "DeNero, J.",
+          part: "Full",
+          meetings: [],
+          status: "planned",
+          isCore: false,
+          certificates: [],
+          dataSource: "berkeley",
+        },
+        {
+          instanceId: "inst-cs280",
+          semesterId: "Y1_Spring",
+          courseId: "berkeley:cs280",
+          code: "COMPSCI 280",
+          name: "Computer Vision",
+          units: 3,
+          instructors: "Malik, J.",
+          part: "Full",
+          meetings: [],
+          status: "planned",
+          isCore: false,
+          certificates: [],
+          dataSource: "berkeley",
+        },
+      ],
+    });
+
+    const audit = computeDegreeAudit(profileWithUndergrad);
+    // Only COMPSCI 280 (3u) counts toward nonHaasUnits, NOT COMPSCI 61A (4u)
+    expect(audit.nonHaasUnits).toBe(3);
+    // Audit warnings must explicitly flag the undergraduate course
+    expect(audit.warnings.some((w) => w.includes("COMPSCI 61A") && w.includes("undergraduate"))).toBe(true);
   });
 });

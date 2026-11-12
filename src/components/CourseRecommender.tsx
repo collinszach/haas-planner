@@ -12,6 +12,7 @@ import {
   buildUnifiedPlanEntries,
   computeDegreeAudit,
   describeCourseFills,
+  isGraduateCourse,
 } from "@/lib/degreeAudit";
 import type {
   BerkeleyClassResult,
@@ -70,7 +71,16 @@ const BID_TEXT: Record<string, { label: string; color: string }> = {
   application: { label: "App Required", color: "text-[#003262]" },
 };
 
-const QUICK_BERKELEY_DEPTS = ["INFO", "COMPSCI", "ENVECON", "PUBPOL", "LAW", "INDENG", "STAT"];
+const QUICK_BERKELEY_DEPTS = [
+  "INFO",
+  "COMPSCI",
+  "INDENG",
+  "PUBPOL",
+  "ENVECON",
+  "LAW",
+  "MECENG",
+  "DATA",
+];
 
 function matchesFormatFilter(part: CatalogCourse["part"], filter: FormatFilter): boolean {
   if (filter === "ALL") return true;
@@ -442,7 +452,9 @@ export function CourseRecommender({
         semester: btSeason,
         year: btYear,
       });
-      setBtResults(res.results);
+      // Strictly enforce graduate-level courses (200+) for graduate degree credit
+      const gradOnly = res.results.filter((cls) => isGraduateCourse(cls.courseNumber));
+      setBtResults(gradOnly);
       setBtSourceMode(res.sourceMode);
       if (res.error) setBtError(res.error);
     } finally {
@@ -731,10 +743,10 @@ export function CourseRecommender({
                 <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#6E6E73]" />
                 <input
                   type="text"
-                  aria-label="Search UC Berkeley Non-MBA courses"
+                  aria-label="Search UC Berkeley Non-MBA graduate courses"
                   value={btQuery}
                   onChange={(e) => setBtQuery(e.target.value)}
-                  placeholder="Department or course (e.g. INFO, COMPSCI, LAW 276, ENVECON)"
+                  placeholder="Graduate dept or course (e.g. INFO, COMPSCI 280, LAW, MECENG 208, DATA C200)..."
                   className="h-8 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
                 />
               </div>
@@ -1052,15 +1064,20 @@ export function CourseRecommender({
         ) : (
           <div>
             {btSourceMode && (
-              <div className="flex items-center justify-between border-b border-[#F2F2F7] bg-[#FAFAFC] px-4 py-2 text-xs text-[#6E6E73]">
-                <span>
-                  Source:{" "}
-                  <strong className="font-medium text-[#1D1D1F]">
-                    {btSourceMode === "live"
-                      ? "Berkeleytime Live GraphQL"
-                      : "Curated Cross-Campus Reference"}
-                  </strong>
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F2F2F7] bg-[#FAFAFC] px-4 py-2 text-xs text-[#6E6E73]">
+                <div className="flex items-center gap-2">
+                  <span>
+                    Source:{" "}
+                    <strong className="font-medium text-[#1D1D1F]">
+                      {btSourceMode === "live"
+                        ? "Berkeleytime Live GraphQL"
+                        : "Curated Cross-Campus Reference"}
+                    </strong>
+                  </span>
+                  <span className="rounded bg-[#EDE9FE] px-1.5 py-0.5 text-[11px] font-semibold text-[#5B21B6]">
+                    Graduate Courses Only (200+)
+                  </span>
+                </div>
                 <span>Up to {audit.nonHaasCap} Non-Haas units</span>
               </div>
             )}
@@ -1070,8 +1087,8 @@ export function CourseRecommender({
             {btResults.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#6E6E73]">
                 {btLoading
-                  ? "Querying UC Berkeley class catalog..."
-                  : "Enter a UC Berkeley department or pick one above to search campus classes."}
+                  ? "Querying UC Berkeley graduate catalog (200+)..."
+                  : "Enter a UC Berkeley department or pick one above to search graduate classes (200+)."}
               </div>
             ) : (
               <div className="divide-y divide-[#F2F2F7]">

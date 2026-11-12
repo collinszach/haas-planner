@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { isGraduateCourse } from "@/lib/degreeAudit";
 import type { BerkeleyClassResult } from "@/types/planner";
 
 const CURATED_BERKELEY_FALLBACK: BerkeleyClassResult[] = [
@@ -37,6 +38,44 @@ const CURATED_BERKELEY_FALLBACK: BerkeleyClassResult[] = [
     dayLabel: "Tue/Thu",
     timeLabel: "4:00 PM–5:30 PM",
     meetings: [{ days: ["Tue", "Thu"], startMin: 960, endMin: 1050, part: "Full" }],
+    evaluation: null,
+    sourceMode: "fallback",
+  },
+  {
+    id: "BT-2027Spring-COMPSCI-280-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "COMPSCI",
+    courseNumber: "280",
+    sectionNumber: "001",
+    title: "Computer Vision and Deep Representation",
+    units: 4,
+    instructors: "Alexei Efros, Angjoo Kanazawa",
+    averageGrade: 3.87,
+    enrolledCount: 30,
+    maxEnroll: 45,
+    dayLabel: "Mon/Wed",
+    timeLabel: "1:00 PM–2:30 PM",
+    meetings: [{ days: ["Mon", "Wed"], startMin: 780, endMin: 870, part: "Full" }],
+    evaluation: null,
+    sourceMode: "fallback",
+  },
+  {
+    id: "BT-2027Spring-MECENG-208-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "MECENG",
+    courseNumber: "208",
+    sectionNumber: "001",
+    title: "Control of Robotic Systems",
+    units: 3,
+    instructors: "Koushil Sreenath",
+    averageGrade: 3.82,
+    enrolledCount: 28,
+    maxEnroll: 40,
+    dayLabel: "Mon/Wed",
+    timeLabel: "2:00 PM–3:30 PM",
+    meetings: [{ days: ["Mon", "Wed"], startMin: 840, endMin: 930, part: "Full" }],
     evaluation: null,
     sourceMode: "fallback",
   },
@@ -118,15 +157,19 @@ export async function searchBerkeleyCourses(params: {
       const { data, error } = await supabase.functions.invoke(
         "search-berkeley-courses",
         {
-          body: { search: q, semester, year, page: 1, pageSize: 15 },
+          body: { search: q, semester, year, page: 1, pageSize: 20 },
         },
       );
       if (!error && Array.isArray(data?.results)) {
-        return {
-          results: (data.results as BerkeleyClassResult[]).map((r) => ({
+        // Enforce strictly graduate-level courses (200+) for MBA and concurrent degree credit
+        const gradResults = (data.results as BerkeleyClassResult[])
+          .filter((r) => isGraduateCourse(r.courseNumber))
+          .map((r) => ({
             ...r,
-            sourceMode: "live",
-          })),
+            sourceMode: "live" as const,
+          }));
+        return {
+          results: gradResults,
           sourceMode: "live",
         };
       }
@@ -136,14 +179,16 @@ export async function searchBerkeleyCourses(params: {
   }
 
   const lower = q.toLowerCase();
-  const filtered = CURATED_BERKELEY_FALLBACK.filter((c) =>
-    `${c.subject} ${c.courseNumber} ${c.title} ${c.instructors}`
-      .toLowerCase()
-      .includes(lower),
+  const filtered = CURATED_BERKELEY_FALLBACK.filter(
+    (c) =>
+      isGraduateCourse(c.courseNumber) &&
+      `${c.subject} ${c.courseNumber} ${c.title} ${c.instructors}`
+        .toLowerCase()
+        .includes(lower),
   );
   return {
     results: filtered,
     sourceMode: "fallback",
-    error: "Using cached UC Berkeley graduate samples while live search reconnects.",
+    error: "Using curated UC Berkeley graduate courses (200+) while live search reconnects.",
   };
 }

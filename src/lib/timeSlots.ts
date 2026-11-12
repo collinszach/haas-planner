@@ -33,6 +33,39 @@ export function formatTimeRange(startMin: number, endMin: number): string {
   return `${formatMinutes12h(startMin)}–${formatMinutes12h(endMin)}`;
 }
 
+export function formatTimeRangeCompact(
+  startMin: number,
+  endMin: number,
+  ultraCompact = false,
+): string {
+  const sh24 = Math.floor(startMin / 60);
+  const sm = startMin % 60;
+  const sap = sh24 >= 12 ? "PM" : "AM";
+  const sh12 = sh24 % 12 === 0 ? 12 : sh24 % 12;
+
+  const eh24 = Math.floor(endMin / 60);
+  const em = endMin % 60;
+  const eap = eh24 >= 12 ? "PM" : "AM";
+  const eh12 = eh24 % 12 === 0 ? 12 : eh24 % 12;
+
+  if (ultraCompact) {
+    const sStr = sm === 0 ? `${sh12}` : `${sh12}:${String(sm).padStart(2, "0")}`;
+    const eStr = em === 0 ? `${eh12}` : `${eh12}:${String(em).padStart(2, "0")}`;
+    if (sap === eap) {
+      return `${sStr}–${eStr} ${eap}`;
+    }
+    return `${sStr} ${sap}–${eStr} ${eap}`;
+  }
+
+  const sFormatted = sm === 0 ? `${sh12}:00` : `${sh12}:${String(sm).padStart(2, "0")}`;
+  const eFormatted = em === 0 ? `${eh12}:00` : `${eh12}:${String(em).padStart(2, "0")}`;
+
+  if (sap === eap) {
+    return `${sFormatted}–${eFormatted} ${eap}`;
+  }
+  return `${sFormatted} ${sap}–${eFormatted} ${eap}`;
+}
+
 export function makeSlotToken(
   termPrefix: TermPartPrefix,
   day: ScheduleWeekday,

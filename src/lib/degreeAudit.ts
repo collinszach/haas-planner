@@ -56,6 +56,25 @@ export const DEGREE_TRACK_TARGETS: Record<
 const CORE_TOTAL_COUNT = CORE_CURRICULUM.length; // 11 courses = 20 units
 
 /**
+ * UC Berkeley course numbering:
+ * - 1–99: Lower-division undergraduate
+ * - 100–199: Upper-division undergraduate
+ * - 200–299: Graduate courses & seminars (Standard Graduate Level)
+ * - 300+: Professional / graduate level
+ * For MBA and MBA/MEng degree audits, only graduate-level courses (200+) are accepted.
+ */
+export function isGraduateCourse(rawCodeOrNumber?: string | null): boolean {
+  if (!rawCodeOrNumber) return false;
+  const trimmed = rawCodeOrNumber.trim();
+  if (!trimmed) return false;
+  // Match standard Berkeley course patterns: e.g. "C200", "290", "INFO 206A", "COMPSCI 61A", "ENGIN 270B", "MBA252.1"
+  const match = trimmed.match(/(?:^|\s|[A-Za-z]+(?:\s*))([A-Za-z]?)(\d{1,4})(?:[A-Za-z0-9.]*)/);
+  if (!match) return false;
+  const num = parseInt(match[2], 10);
+  return !Number.isNaN(num) && num >= 200;
+}
+
+/**
  * Returns the student's complete unified 4-semester list combining:
  * - Cohort's Y1 Fall Core courses (from `homeCohort`)
  * - Live Y1 Spring Core courses (from `currentSections` + `waivedCourses`)
@@ -134,6 +153,7 @@ export function computeDegreeAudit(
   let e270bPlanned = false;
   let e270cPlanned = false;
   const appliedInnovationCourseCodes: string[] = [];
+  const undergradWarnings: string[] = [];
 
   for (const e of entries) {
     const isCompleted = e.status === "completed";
@@ -147,6 +167,12 @@ export function computeDegreeAudit(
 
     const fixedKey = classifyMengFixedCourse(e);
     if (e.dataSource === "berkeley" || fixedKey !== null) {
+      if (!isGraduateCourse(e.code)) {
+        undergradWarnings.push(
+          `${e.code} (${e.name}) is an undergraduate course (<200). MBA degree credits only apply to graduate-level courses (200+).`,
+        );
+        continue;
+      }
       nonHaasUnits += e.units;
       if (fixedKey === "capstone") {
         capstonePlanned = true;
@@ -355,6 +381,8 @@ export function computeDegreeAudit(
       );
     }
   }
+
+  warnings.push(...undergradWarnings);
 
   return {
     coreCompletedCount,
