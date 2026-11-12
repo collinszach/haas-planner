@@ -424,8 +424,8 @@ export function MatchesPanel({
               My Waiting Blind Requests ({activeRequests.length})
             </h2>
             <p className="mt-0.5 text-xs text-[#55687D]">
-              Invisible to other students. Matched automatically in FIFO order with ranked
-              preferences when a mirror request arrives.
+              Your unmatched requests waiting in FIFO order by Queue priority. Once a mirror partner
+              submits, this moves up to Verified Matches automatically — or click Withdraw to cancel.
             </p>
           </div>
         </div>
@@ -443,11 +443,11 @@ export function MatchesPanel({
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-md bg-[#FEF5DC] px-2 py-0.5 text-xs font-bold uppercase text-[#8A5300]">
+                    <span className="rounded-md bg-[#FEF5DC] px-2 py-1 text-xs font-bold uppercase text-[#8A5300]">
                       Waiting in Blind Pool
                     </span>
                     {req.bundleId && (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-[#E8EFF7] px-2 py-0.5 text-xs font-bold text-[#003262]">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-[#E8EFF7] px-2 py-1 text-xs font-bold text-[#003262]">
                         <Link2 className="h-3 w-3" />
                         Paired All-or-Nothing
                       </span>
@@ -466,48 +466,6 @@ export function MatchesPanel({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {onConfirmExternalRequest && req.wantedKeys.length > 0 && (
-                    <>
-                      {req.wantedKeys.length > 1 && (
-                        <select
-                          aria-label={`Select confirmed section for ${req.course ?? "swap request"}`}
-                          value={selectedTargets[req.id] ?? req.wantedKeys[0] ?? ""}
-                          onChange={(e) =>
-                            setSelectedTargets((prev) => ({
-                              ...prev,
-                              [req.id]: e.target.value,
-                            }))
-                          }
-                          className="rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F1E30]"
-                        >
-                          {req.wantedKeys.map((k) => (
-                            <option key={k} value={k}>
-                              {formatSwapKey(k)}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <button
-                        type="button"
-                        disabled={busyId === req.id}
-                        onClick={async () => {
-                          setBusyId(req.id);
-                          try {
-                            await onConfirmExternalRequest(
-                              req.id,
-                              selectedTargets[req.id] ?? req.wantedKeys[0],
-                            );
-                          } finally {
-                            setBusyId(null);
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-[#0F6B4E] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0B533C] disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Confirm &amp; Shift
-                      </button>
-                    </>
-                  )}
                   <button
                     type="button"
                     onClick={() => onCancelRequest(req.id)}
