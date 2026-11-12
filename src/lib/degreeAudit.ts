@@ -1,10 +1,17 @@
 import { CERTIFICATE_LABELS } from "@/data/catalog";
 import { CORE_CURRICULUM, buildFallCoreEntriesForCohort, buildSpringCoreEntriesFromProfile } from "@/data/coreCurriculum";
+import {
+  classifyMengFixedCourse,
+  getMengTrackRequirement,
+  MBA_MENG_REQUIREMENTS,
+} from "@/data/mengRequirements";
 import { SECTIONS } from "@/data/sections";
 import type {
   CatalogCourse,
   CertificateProgress,
   DegreeAuditReport,
+  MengAuditSummary,
+  MengSectionProgress,
   SemesterId,
   SemesterLoadSummary,
 } from "@/types/planner";
@@ -29,7 +36,19 @@ export const DEGREE_TRACK_TARGETS: Record<
 > = {
   FTMBA: { label: "Full-Time MBA", mbaTarget: 51, programTarget: 51, nonHaasCap: 5 },
   MBA_MPH: { label: "MBA / MPH Dual", mbaTarget: 45, programTarget: 67, nonHaasCap: 22 },
-  MBA_MENG: { label: "MBA / MEng Dual", mbaTarget: 40, programTarget: 65, nonHaasCap: 25 },
+  MBA_MENG: {
+    label: "MBA / MEng Dual",
+    mbaTarget: MBA_MENG_REQUIREMENTS.mbaCombinedTargetUnits,
+    programTarget:
+      MBA_MENG_REQUIREMENTS.mbaCombinedTargetUnits +
+      MBA_MENG_REQUIREMENTS.capstoneRequiredUnits +
+      MBA_MENG_REQUIREMENTS.generalMengRequiredUnits +
+      MBA_MENG_REQUIREMENTS.defaultEngineeringMajorUnits,
+    nonHaasCap:
+      MBA_MENG_REQUIREMENTS.capstoneRequiredUnits +
+      MBA_MENG_REQUIREMENTS.generalMengRequiredUnits +
+      MBA_MENG_REQUIREMENTS.defaultEngineeringMajorUnits,
+  },
   MBA_JD: { label: "MBA / JD Dual", mbaTarget: 39, programTarget: 67, nonHaasCap: 28 },
   MBA_MCS: { label: "MBA / MCS Dual", mbaTarget: 42, programTarget: 67, nonHaasCap: 25 },
 };
@@ -56,12 +75,28 @@ export function buildUnifiedPlanEntries(
   return [...fallCores, ...springCores, ...electives];
 }
 
+function makeMengSection(params: {
+  id: MengSectionProgress["id"];
+  label: string;
+  requiredUnits: number;
+  plannedUnits: number;
+  completedUnits: number;
+  notes: string;
+}): MengSectionProgress {
+  const remainingUnits = Math.max(0, params.requiredUnits - params.plannedUnits);
+  return {
+    ...params,
+    remainingUnits,
+    status: remainingUnits === 0 ? "complete" : "short",
+  };
+}
+
 export function computeDegreeAudit(
   profile: StudentProfile,
   activeSections: SectionInfo[] = SECTIONS,
 ): DegreeAuditReport {
   const track: DegreeTrack = profile.degreeTrack ?? "FTMBA";
-  const targets = DEGREE_TRACK_TARGETS[track];
+  const baseTargets = DEGREE_TRACK_TARGETS[track];
   const entries = buildUnifiedPlanEntries(profile, activeSections);
 
   const nonWaivedSpringCount = CORE_CURRICULUM.filter(
@@ -75,28 +110,161 @@ export function computeDegreeAudit(
     fallCoreCount + nonWaivedSpringCount + profile.waivedCourses.length;
 
   let coreUnits = 0;
+  let completedCoreUnits = 0;
   let haasElectiveUnits = 0;
+  let completedHaasElectiveUnits = 0;
   let nonHaasUnits = 0;
   let experientialCount = 0;
   let businessTechCount = 0;
 
+  let mengCapstoneUnits = 0;
+  let mengCapstoneCompletedUnits = 0;
+  let mengGeneralUnits = 0;
+  let mengGeneralCompletedUnits = 0;
+  let mengMajorUnits = 0;
+  let mengMajorCompletedUnits = 0;
+  let capstonePlanned = false;
+  let e270bPlanned = false;
+  let e270cPlanned = false;
+  const appliedInnovationCourseCodes: string[] = [];
+
   for (const e of entries) {
+    const isCompleted = e.status === "completed";
     if (e.isCore) {
-      if (!e.waived) coreUnits += e.units;
+      if (!e.waived) {
+        coreUnits += e.units;
+        if (isCompleted) completedCoreUnits += e.units;
+      }
       continue;
     }
-    if (e.dataSource === "berkeley") {
+
+    const fixedKey = classifyMengFixedCourse(e);
+    if (e.dataSource === "berkeley" || fixedKey !== null) {
       nonHaasUnits += e.units;
+      if (fixedKey === "capstone") {
+        capstonePlanned = true;
+        mengCapstoneUnits += e.units;
+        if (isCompleted) mengCapstoneCompletedUnits += e.units;
+      } else if (fixedKey === "e270b" || fixedKey === "e270c") {
+        if (fixedKey === "e270b") e270bPlanned = true;
+        if (fixedKey === "e270c") e270cPlanned = true;
+        mengGeneralUnits += e.units;
+        if (isCompleted) mengGeneralCompletedUnits += e.units;
+      } else {
+        mengMajorUnits += e.units;
+        if (isCompleted) mengMajorCompletedUnits += e.units;
+      }
     } else {
       haasElectiveUnits += e.units;
+      if (isCompleted) completedHaasElectiveUnits += e.units;
+      if (
+        e.certificates.includes("AI") ||
+        e.name.toLowerCase().includes("applied innovation")
+      ) {
+        appliedInnovationCourseCodes.push(e.code);
+      }
     }
+
     if (e.experiential) experientialCount += 1;
     if (e.businessTech) businessTechCount += 1;
   }
 
-  // Up to `nonHaasCap` non-Haas graduate/upper-div units count toward FTMBA MBA units
-  const countedNonHaasUnits = Math.min(nonHaasUnits, targets.nonHaasCap);
-  const validMbaUnits = coreUnits + haasElectiveUnits + countedNonHaasUnits;
+  let mbaUnitTarget = baseTargets.mbaTarget;
+  let programUnitTarget = baseTargets.programTarget;
+  let nonHaasCap = baseTargets.nonHaasCap;
+  let validMbaUnits = coreUnits + haasElectiveUnits;
+  let mengAudit: MengAuditSummary | undefined;
+
+  if (track === "MBA_MENG") {
+    const mengTrack = getMengTrackRequirement(profile.mengTrackId);
+    const engTotalReq =
+      MBA_MENG_REQUIREMENTS.capstoneRequiredUnits +
+      MBA_MENG_REQUIREMENTS.generalMengRequiredUnits +
+      mengTrack.minUnits;
+    mbaUnitTarget = MBA_MENG_REQUIREMENTS.mbaCombinedTargetUnits;
+    nonHaasCap = engTotalReq;
+    programUnitTarget = mbaUnitTarget + engTotalReq;
+    // MBA/MEng requires 42 strictly Haas MBA units (20 core + 22 electives); MEng courses satisfy MEng reqs separately.
+    validMbaUnits = coreUnits + haasElectiveUnits;
+
+    const hasAppliedInnovationElective =
+      appliedInnovationCourseCodes.length > 0 || experientialCount > 0;
+
+    const sectionsList: MengSectionProgress[] = [
+      makeMengSection({
+        id: "capstone",
+        label: "Capstone Project",
+        requiredUnits: MBA_MENG_REQUIREMENTS.capstoneRequiredUnits,
+        plannedUnits: mengCapstoneUnits,
+        completedUnits: mengCapstoneCompletedUnits,
+        notes: "ENGIN 296MB (MBA/MEng Capstone Project)",
+      }),
+      makeMengSection({
+        id: "general_meng",
+        label: "General MEng Required Courses",
+        requiredUnits: MBA_MENG_REQUIREMENTS.generalMengRequiredUnits,
+        plannedUnits: mengGeneralUnits,
+        completedUnits: mengGeneralCompletedUnits,
+        notes: "E270B (1u R&D Tech Mgmt & Ethics) + E270C (1u Teaming & Project Mgmt)",
+      }),
+      makeMengSection({
+        id: "mba_core",
+        label: "Required MBA Courses",
+        requiredUnits: MBA_MENG_REQUIREMENTS.mbaCoreRequiredUnits,
+        plannedUnits: coreUnits,
+        completedUnits: completedCoreUnits,
+        notes: "11 Haas MBA Core courses",
+      }),
+      makeMengSection({
+        id: "mba_electives",
+        label: "MBA Electives",
+        requiredUnits: MBA_MENG_REQUIREMENTS.mbaElectiveRequiredUnits,
+        plannedUnits: haasElectiveUnits,
+        completedUnits: completedHaasElectiveUnits,
+        notes: "Includes 6u concurrent-program courses + Applied Innovation elective",
+      }),
+      makeMengSection({
+        id: "eng_major",
+        label: "Engineering Major Courses",
+        requiredUnits: mengTrack.minUnits,
+        plannedUnits: mengMajorUnits,
+        completedUnits: mengMajorCompletedUnits,
+        notes: mengTrack.label,
+      }),
+    ];
+
+    const totalPlannedUnits =
+      mengCapstoneUnits +
+      mengGeneralUnits +
+      coreUnits +
+      haasElectiveUnits +
+      mengMajorUnits;
+
+    mengAudit = {
+      trackId: mengTrack.trackId,
+      trackLabel: mengTrack.label,
+      department: mengTrack.department,
+      rule: mengTrack.rule,
+      coursesAndNotes: mengTrack.coursesAndNotes,
+      requirementsUrl: MBA_MENG_REQUIREMENTS.url,
+      capstonePlanned,
+      e270bPlanned,
+      e270cPlanned,
+      hasAppliedInnovationElective,
+      appliedInnovationCourseCodes,
+      engineeringMajorTargetUnits: mengTrack.minUnits,
+      engineeringMajorPlannedUnits: mengMajorUnits,
+      sections: sectionsList,
+      totalRequiredUnits: programUnitTarget,
+      totalPlannedUnits,
+      totalRemainingUnits: Math.max(0, programUnitTarget - totalPlannedUnits),
+    };
+  } else {
+    // Up to `nonHaasCap` non-Haas graduate/upper-div units count toward FTMBA MBA units
+    const countedNonHaasUnits = Math.min(nonHaasUnits, baseTargets.nonHaasCap);
+    validMbaUnits = coreUnits + haasElectiveUnits + countedNonHaasUnits;
+  }
+
   const totalProgramUnits = coreUnits + haasElectiveUnits + nonHaasUnits;
 
   const bySemester: SemesterLoadSummary[] = SEMESTER_META.map((sem) => {
@@ -107,7 +275,7 @@ export function computeDegreeAudit(
     for (const r of semRows) {
       if (r.isCore) {
         if (!r.waived) cU += r.units;
-      } else if (r.dataSource === "berkeley") {
+      } else if (r.dataSource === "berkeley" || classifyMengFixedCourse(r) !== null) {
         nU += r.units;
       } else {
         eU += r.units;
@@ -143,10 +311,24 @@ export function computeDegreeAudit(
   }
 
   const warnings: string[] = [];
-  if (nonHaasUnits > targets.nonHaasCap && track === "FTMBA") {
+  if (nonHaasUnits > nonHaasCap && track === "FTMBA") {
     warnings.push(
       `Non-Haas units (${nonHaasUnits}) exceed the 5-unit FTMBA cap; extra units do not count toward the 51 MBA unit minimum.`,
     );
+  }
+  if (track === "MBA_MENG" && mengAudit) {
+    if (!mengAudit.hasAppliedInnovationElective) {
+      warnings.push(
+        "MBA/MEng requires an Applied Innovation elective among your 22 MBA elective units.",
+      );
+    }
+    if (!mengAudit.capstonePlanned || !mengAudit.e270bPlanned || !mengAudit.e270cPlanned) {
+      const missingMeng: string[] = [];
+      if (!mengAudit.capstonePlanned) missingMeng.push("ENGIN 296MB (3u)");
+      if (!mengAudit.e270bPlanned) missingMeng.push("E270B (1u)");
+      if (!mengAudit.e270cPlanned) missingMeng.push("E270C (1u)");
+      warnings.push(`General MEng requirements not yet in plan: ${missingMeng.join(", ")}.`);
+    }
   }
   for (const sem of bySemester) {
     if (sem.belowFullTimeMin) {
@@ -154,7 +336,7 @@ export function computeDegreeAudit(
     }
   }
   if (
-    track === "FTMBA" &&
+    (track === "FTMBA" || track === "MBA_MENG") &&
     profile.waivedCourses.length > 0
   ) {
     const waivedUnits = entries
@@ -162,7 +344,7 @@ export function computeDegreeAudit(
       .reduce((sum, e) => sum + e.units, 0);
     if (waivedUnits > 0) {
       warnings.push(
-        `Waiving ${waivedUnits} Core unit(s) requires making up those credits with MBA electives to reach ${targets.mbaTarget} valid units.`,
+        `Waiving ${waivedUnits} Core unit(s) requires making up those credits with MBA electives to reach ${mbaUnitTarget} MBA units.`,
       );
     }
   }
@@ -172,11 +354,11 @@ export function computeDegreeAudit(
     coreRequiredCount: CORE_TOTAL_COUNT,
     coreUnits,
     validMbaUnits,
-    mbaUnitTarget: targets.mbaTarget,
+    mbaUnitTarget,
     totalProgramUnits,
-    programUnitTarget: targets.programTarget,
+    programUnitTarget,
     nonHaasUnits,
-    nonHaasCap: targets.nonHaasCap,
+    nonHaasCap,
     experientialCount,
     experientialSatisfied: experientialCount >= 1,
     businessTechCount,
@@ -184,12 +366,13 @@ export function computeDegreeAudit(
     certificates,
     missingCoreCodes,
     warnings,
+    mengAudit,
   };
 }
 
 /**
  * Produces concise, accurate "What it fills" tags for a candidate course relative to the
- * student's active degree audit (never guessing — tied directly to Haas rules).
+ * student's active degree audit (never guessing — tied directly to Haas & concurrent track rules).
  */
 export function describeCourseFills(
   course: Pick<
@@ -200,12 +383,21 @@ export function describeCourseFills(
 ): string[] {
   const fills: string[] = [];
   if (course.dataSource === "berkeley") {
-    const rem = Math.max(0, audit.nonHaasCap - audit.nonHaasUnits);
-    fills.push(
-      rem > 0
-        ? `Non-Haas Grad (+${course.units}u, ${rem}u cap left)`
-        : `Non-Haas Grad (exceeds ${audit.nonHaasCap}u cap)`,
-    );
+    if (audit.mengAudit) {
+      const remEng = Math.max(0, audit.nonHaasCap - audit.nonHaasUnits);
+      fills.push(
+        remEng > 0
+          ? `MEng Engineering (+${course.units}u, ${remEng}u left)`
+          : `MEng Engineering (+${course.units}u)`,
+      );
+    } else {
+      const rem = Math.max(0, audit.nonHaasCap - audit.nonHaasUnits);
+      fills.push(
+        rem > 0
+          ? `Non-Haas Grad (+${course.units}u, ${rem}u cap left)`
+          : `Non-Haas Grad (exceeds ${audit.nonHaasCap}u cap)`,
+      );
+    }
   } else {
     const nextUnits = Math.min(audit.mbaUnitTarget, audit.validMbaUnits + course.units);
     fills.push(`+${course.units}u MBA (${nextUnits}/${audit.mbaUnitTarget})`);
@@ -223,6 +415,9 @@ export function describeCourseFills(
   }
   for (const c of course.certificates ?? []) {
     fills.push(`${c} Certificate`);
+  }
+  if (audit.mengAudit && course.certificates?.includes("AI") && !audit.mengAudit.hasAppliedInnovationElective) {
+    fills.push("Fills MBA/MEng AI Elective");
   }
   if (course.code.startsWith("MBA294")) {
     fills.push("S/U Allowed (Speaker Series)");

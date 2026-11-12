@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CERTIFICATE_LABELS } from "@/data/catalog";
+import { MENG_TRACKS } from "@/data/mengRequirements";
 import {
   COHORT_COLORS,
   COHORTS,
@@ -55,6 +56,9 @@ export function ProfileSetup({
   );
   const [degreeTrack, setDegreeTrack] = useState<DegreeTrack>(
     initialProfile?.degreeTrack ?? "FTMBA",
+  );
+  const [mengTrackId, setMengTrackId] = useState<string>(
+    initialProfile?.mengTrackId ?? "",
   );
   const [targetCertificates, setTargetCertificates] = useState<CertificateCode[]>(
     initialProfile?.targetCertificates ?? [],
@@ -120,8 +124,11 @@ export function ProfileSetup({
         isAdmin: initialProfile?.isAdmin,
         createdAt: initialProfile?.createdAt ?? new Date().toISOString(),
         degreeTrack,
+        mengTrackId: degreeTrack === "MBA_MENG" ? mengTrackId || null : null,
         targetCertificates,
         plannedCourses: initialProfile?.plannedCourses ?? [],
+        plannedBids: initialProfile?.plannedBids ?? {},
+        avatarUrl: initialProfile?.avatarUrl ?? null,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save profile.");
@@ -202,12 +209,41 @@ export function ProfileSetup({
             >
               {(Object.keys(DEGREE_TRACK_TARGETS) as DegreeTrack[]).map((t) => (
                 <option key={t} value={t}>
-                  {DEGREE_TRACK_TARGETS[t].label} ({DEGREE_TRACK_TARGETS[t].mbaTarget} MBA u)
+                  {DEGREE_TRACK_TARGETS[t].label} ({DEGREE_TRACK_TARGETS[t].mbaTarget} MBA u ·{" "}
+                  {DEGREE_TRACK_TARGETS[t].programTarget} Total u)
                 </option>
               ))}
             </select>
           </div>
         </div>
+
+        {degreeTrack === "MBA_MENG" && (
+          <div>
+            <label
+              htmlFor="profile-meng-track"
+              className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]"
+            >
+              MEng Major &amp; Track (sets 12–15u Engineering Major target)
+            </label>
+            <select
+              id="profile-meng-track"
+              value={mengTrackId}
+              onChange={(e) => setMengTrackId(e.target.value)}
+              className="w-full rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-2 text-sm text-[#1D1D1F] outline-none focus:border-[#003262]"
+            >
+              <option value="">No track selected yet (Default 12u · 59 Total u)</option>
+              {Array.from(new Set(MENG_TRACKS.map((t) => t.department))).map((dept) => (
+                <optgroup key={dept} label={dept}>
+                  {MENG_TRACKS.filter((t) => t.department === dept).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label} ({t.minUnits}u)
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <span className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]">

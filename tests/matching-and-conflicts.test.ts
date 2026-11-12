@@ -6,6 +6,7 @@ import {
   SPRING_2027_COURSES,
 } from "@/data/catalog";
 import { DEMO_PROFILES } from "@/data/demoSeed";
+import { createMengFixedCourseRecord, MENG_TRACKS } from "@/data/mengRequirements";
 import {
   applyCatalogUpdates,
   getDefaultSectionsForCohort,
@@ -48,8 +49,10 @@ function makeProfile(overrides: Partial<StudentProfile>): StudentProfile {
     currentSections:
       overrides.currentSections ?? getDefaultSectionsForCohort(cohort),
     degreeTrack: overrides.degreeTrack ?? "FTMBA",
+    mengTrackId: overrides.mengTrackId ?? null,
     targetCertificates: overrides.targetCertificates ?? [],
     plannedCourses: overrides.plannedCourses ?? [],
+    avatarUrl: overrides.avatarUrl ?? null,
   };
 }
 
@@ -901,5 +904,40 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     const demoDemand = computeCourseDemandFromProfiles(Object.values(DEMO_PROFILES));
     expect(demoDemand["MBA231.2"]).toBeGreaterThanOrEqual(3);
     expect(demoDemand["MBA212.1"]).toBeGreaterThanOrEqual(2);
+  });
+
+  it("enforces official Berkeley MBA/MEng unit targets, required ENGIN courses, and 36 engineering tracks", () => {
+    expect(MENG_TRACKS.length).toBe(36);
+
+    const baselineAudit = computeDegreeAudit(
+      makeProfile({
+        degreeTrack: "MBA_MENG",
+        plannedCourses: [
+          createMengFixedCourseRecord("capstone", "Y2_Spring"),
+          createMengFixedCourseRecord("e270b", "Y2_Fall"),
+          createMengFixedCourseRecord("e270c", "Y2_Fall"),
+        ],
+      }),
+    );
+    expect(baselineAudit.mbaUnitTarget).toBe(42);
+    expect(baselineAudit.programUnitTarget).toBe(59);
+    expect(baselineAudit.nonHaasCap).toBe(17);
+    expect(baselineAudit.validMbaUnits).toBe(20); // Capstone/E270B/E270C do NOT inflate MBA units
+    expect(baselineAudit.totalProgramUnits).toBe(25);
+    expect(baselineAudit.mengAudit?.totalRemainingUnits).toBe(34);
+    expect(baselineAudit.mengAudit?.capstonePlanned).toBe(true);
+    expect(baselineAudit.mengAudit?.e270bPlanned).toBe(true);
+    expect(baselineAudit.mengAudit?.e270cPlanned).toBe(true);
+    expect(baselineAudit.mengAudit?.sections.find((s) => s.id === "mba_electives")?.remainingUnits).toBe(22);
+
+    const fintechAudit = computeDegreeAudit(
+      makeProfile({
+        degreeTrack: "MBA_MENG",
+        mengTrackId: "ieor-fintech",
+      }),
+    );
+    expect(fintechAudit.mengAudit?.engineeringMajorTargetUnits).toBe(15);
+    expect(fintechAudit.programUnitTarget).toBe(62);
+    expect(fintechAudit.nonHaasCap).toBe(20);
   });
 });

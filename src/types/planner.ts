@@ -120,6 +120,37 @@ export interface CertificateProgress {
   matchedCourseCodes: string[];
 }
 
+export interface MengSectionProgress {
+  id: "capstone" | "general_meng" | "mba_core" | "mba_electives" | "eng_major";
+  label: string;
+  requiredUnits: number;
+  plannedUnits: number;
+  completedUnits: number;
+  remainingUnits: number;
+  status: "complete" | "short";
+  notes: string;
+}
+
+export interface MengAuditSummary {
+  trackId: string | null;
+  trackLabel: string;
+  department: string;
+  rule: string;
+  coursesAndNotes: string;
+  requirementsUrl: string;
+  capstonePlanned: boolean;
+  e270bPlanned: boolean;
+  e270cPlanned: boolean;
+  hasAppliedInnovationElective: boolean;
+  appliedInnovationCourseCodes: string[];
+  engineeringMajorTargetUnits: number;
+  engineeringMajorPlannedUnits: number;
+  sections: MengSectionProgress[];
+  totalRequiredUnits: number;
+  totalPlannedUnits: number;
+  totalRemainingUnits: number;
+}
+
 export interface DegreeAuditReport {
   coreCompletedCount: number;
   coreRequiredCount: number;
@@ -137,6 +168,7 @@ export interface DegreeAuditReport {
   certificates: CertificateProgress[];
   missingCoreCodes: string[];
   warnings: string[];
+  mengAudit?: MengAuditSummary;
 }
 
 export type ScheduleFitStatus = "fits" | "swap_unlocks" | "conflict";

@@ -81,6 +81,7 @@ export interface StudentProfile {
   isAdmin?: boolean;
   createdAt?: string;
   degreeTrack?: DegreeTrack;
+  mengTrackId?: string | null;
   targetCertificates?: CertificateCode[];
   plannedCourses?: PlannedCourseRecord[];
   plannedBids?: Record<string, number>;
