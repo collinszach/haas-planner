@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatSwapKey, SECTIONS, SECTION_BY_ID } from "@/data/sections";
+import { ALL_HAAS_COURSES } from "@/data/catalog";
+import { getStoredCustomCourses } from "@/lib/courseCatalogManager";
 import { buildUnifiedPlanEntries } from "@/lib/degreeAudit";
 import {
   formatMinutes12h,
@@ -11,7 +14,7 @@ import {
   SCHEDULE_WEEKDAYS,
   type TermPartPrefix,
 } from "@/lib/timeSlots";
-import type { SemesterId } from "@/types/planner";
+import type { CatalogCourse, CourseEvaluation, SemesterId } from "@/types/planner";
 import type {
   CourseMeeting,
   CourseName,
@@ -23,7 +26,19 @@ import type {
   SwapRequest,
   TimeSlotToken,
 } from "@/types/swap";
-import { AlertTriangle, ArrowRightLeft, Ban, Clock, Eraser, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  Ban,
+  Clock,
+  Eraser,
+  ExternalLink,
+  MapPin,
+  Star,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
 
 interface HalfHourGridProps {
   semesterId: SemesterId;
@@ -35,15 +50,21 @@ interface HalfHourGridProps {
   onRemoveCourse: (instanceId: string) => Promise<void>;
 }
 
-interface PlacedBlock {
+export interface PlacedBlock {
   key: string;
   day: ScheduleWeekday;
   startMin: number;
   endMin: number;
   rowStart: number; // 1-indexed inside CSS grid body
   rowSpan: number;
+  code: string;
   title: string;
-  subtitle: string;
+  room: string;
+  timeString: string;
+  instructor: string;
+  units?: number;
+  format?: string;
+  cohort?: string;
   kind: "core" | "elective" | "campus" | "discussion" | "swap_target";
   hasConflict: boolean;
   conflictText?: string;
@@ -51,9 +72,49 @@ interface PlacedBlock {
   swapLabel?: string;
   removableInstanceId?: string;
   waived?: boolean;
+  syllabusUrl?: string | null;
+  evaluation?: CourseEvaluation | null;
 }
 
-const ROW_PX = 24;
+export const ROW_PX = 28;
+
+export function formatRoomName(raw?: string | null): string {
+  if (!raw) return "Haas Campus";
+  const trimmed = raw.trim();
+  if (!trimmed) return "Haas Campus";
+  // E.g. "C210Cheit" -> "C210 Cheit"
+  if (/^([A-Z][0-9]{3})([A-Za-z]+)$/.test(trimmed)) {
+    return trimmed.replace(/^([A-Z][0-9]{3})([A-Za-z]+)$/, "$1 $2");
+  }
+  return trimmed;
+}
+
+export function resolveBlockLocation(
+  entry: PlannedCourseRecord,
+  meeting: CourseMeeting,
+  sec?: SectionInfo,
+  catalogCourse?: CatalogCourse,
+): string {
+  if (meeting.room && meeting.room.trim()) {
+    return formatRoomName(meeting.room);
+  }
+  if (sec?.room && sec.room.trim()) {
+    return formatRoomName(sec.room);
+  }
+  if (catalogCourse?.meetings?.[0]?.room && catalogCourse.meetings[0].room.trim()) {
+    return formatRoomName(catalogCourse.meetings[0].room);
+  }
+  if (catalogCourse?.notes && /^[A-Z][0-9]{3}/i.test(catalogCourse.notes.trim())) {
+    return formatRoomName(catalogCourse.notes);
+  }
+  if (entry.dataSource === "berkeley") {
+    return "UC Berkeley Campus";
+  }
+  if (entry.isCore) {
+    return "Haas (N470)";
+  }
+  return "Haas Campus";
+}
 
 function semesterTermPrefixes(
   semesterId: SemesterId,
@@ -83,8 +144,14 @@ function semesterTermPrefixes(
   };
 }
 
-function meetingAppliesToPart(part: CourseMeeting["part"], activePart: "A" | "B"): boolean {
-  if (part === "Full" || part === "A" && activePart === "A" || part === "B" && activePart === "B") {
+function meetingAppliesToPart(
+  part: CourseMeeting["part"] | string | undefined,
+  activePart: "A" | "B",
+): boolean {
+  if (!part || part === "Full" || part === "10W") {
+    return true;
+  }
+  if ((part === "A" && activePart === "A") || (part === "B" && activePart === "B")) {
     return true;
   }
   return false;
@@ -102,6 +169,7 @@ export function HalfHourGrid({
   const [activePart, setActivePart] = useState<"A" | "B">("A");
   const [paintMode, setPaintMode] = useState<"add" | "remove" | null>(null);
   const [draftTokens, setDraftTokens] = useState<string[] | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<PlacedBlock | null>(null);
 
   const sectionLookup = useMemo(
     () => Object.fromEntries(sections.map((s) => [s.id, s])),
@@ -126,6 +194,17 @@ export function HalfHourGrid({
   const { placedBlocks, nonGridEntries, hasWaitingSwaps } = useMemo(() => {
     const blocks: PlacedBlock[] = [];
     const outside: PlannedCourseRecord[] = [];
+
+    const customCatalog = getStoredCustomCourses();
+    const catalogLookup = new Map<string, CatalogCourse>();
+    for (const c of ALL_HAAS_COURSES) {
+      catalogLookup.set(c.id, c);
+      catalogLookup.set(c.code, c);
+    }
+    for (const c of customCatalog) {
+      catalogLookup.set(c.id, c);
+      catalogLookup.set(c.code, c);
+    }
 
     const pendingSwapByCourse: Partial<
       Record<CourseName, { state: "waiting" | "matched"; label: string }>
@@ -296,34 +375,77 @@ export function HalfHourGrid({
           const swapInfo =
             entry.isCore && sec ? pendingSwapByCourse[sec.course] : undefined;
 
-          blocks.push({
-            key: `${entry.instanceId}:${day}:${m.startMin}:${m.kind ?? "m"}`,
-            day,
-            startMin: m.startMin,
-            endMin: m.endMin,
-            rowStart,
-            rowSpan,
-            title: entry.isCore ? entry.name : `${entry.code} · ${entry.name}`,
-            subtitle:
-              m.kind === "discussion"
-                ? `Fri Discussion · ${m.room ?? sec?.room ?? "Haas"}`
-                : entry.isCore
-                  ? `${sec?.sectionCode ?? ""} · ${m.room ?? sec?.room ?? "Haas"}`
-                  : `${entry.instructors} · ${entry.units}u`,
-            kind:
-              m.kind === "discussion"
-                ? "discussion"
-                : entry.isCore
-                  ? "core"
-                  : entry.dataSource === "berkeley"
-                    ? "campus"
-                    : "elective",
-            hasConflict: Boolean(conflictText),
-            conflictText,
-            swapState: m.kind === "discussion" ? undefined : swapInfo?.state,
-            swapLabel: m.kind === "discussion" ? undefined : swapInfo?.label,
-            removableInstanceId: entry.isCore ? undefined : entry.instanceId,
-          });
+          const catCourse = catalogLookup.get(entry.courseId) ?? catalogLookup.get(entry.code);
+          const room = resolveBlockLocation(entry, m, sec, catCourse);
+          const timeString = `${formatMinutes12h(m.startMin)} – ${formatMinutes12h(m.endMin)}`;
+
+          if (m.kind === "discussion") {
+            blocks.push({
+              key: `${entry.instanceId}:${day}:${m.startMin}:disc`,
+              day,
+              startMin: m.startMin,
+              endMin: m.endMin,
+              rowStart,
+              rowSpan,
+              code: `${sec?.course ?? "Core"} Disc`,
+              cohort: sec?.cohort,
+              title: `${sec?.course ?? "Core"} Friday Discussion`,
+              room,
+              timeString,
+              instructor: sec?.instructor ?? entry.instructors,
+              units: undefined,
+              format: "Discussion",
+              kind: "discussion",
+              hasConflict: Boolean(conflictText),
+              conflictText,
+            });
+          } else if (entry.isCore) {
+            blocks.push({
+              key: `${entry.instanceId}:${day}:${m.startMin}:core`,
+              day,
+              startMin: m.startMin,
+              endMin: m.endMin,
+              rowStart,
+              rowSpan,
+              code: sec?.course ? `${sec.course} ${sec.sectionCode}` : entry.code,
+              cohort: sec?.cohort,
+              title: entry.name,
+              room,
+              timeString,
+              instructor: sec?.instructor ?? entry.instructors,
+              units: entry.units,
+              format: sec?.termDates ?? "Part A",
+              kind: "core",
+              hasConflict: Boolean(conflictText),
+              conflictText,
+              swapState: swapInfo?.state,
+              swapLabel: swapInfo?.label,
+              syllabusUrl: catCourse?.syllabusUrl,
+              evaluation: catCourse?.evaluation,
+            });
+          } else {
+            blocks.push({
+              key: `${entry.instanceId}:${day}:${m.startMin}:m`,
+              day,
+              startMin: m.startMin,
+              endMin: m.endMin,
+              rowStart,
+              rowSpan,
+              code: entry.code,
+              title: entry.name,
+              room,
+              timeString,
+              instructor: entry.instructors,
+              units: entry.units,
+              format: entry.format ?? (entry.part === "Full" ? "Full Term" : `Part ${entry.part}`),
+              kind: entry.dataSource === "berkeley" ? "campus" : "elective",
+              hasConflict: Boolean(conflictText),
+              conflictText,
+              removableInstanceId: entry.instanceId,
+              syllabusUrl: catCourse?.syllabusUrl,
+              evaluation: catCourse?.evaluation,
+            });
+          }
         }
       }
 
@@ -347,6 +469,9 @@ export function HalfHourGrid({
           const rowStart = Math.floor((clampedStart - 8 * 60) / 30) + 1;
           const rowSpan = Math.max(1, Math.round((clampedEnd - clampedStart) / 30));
 
+          const room = sec.room ? formatRoomName(sec.room) : "Haas (N470)";
+          const timeString = `${formatMinutes12h(m.startMin)} – ${formatMinutes12h(m.endMin)}`;
+
           blocks.push({
             key: `swap-target:${sec.id}:${day}:${m.startMin}`,
             day,
@@ -354,8 +479,14 @@ export function HalfHourGrid({
             endMin: m.endMin,
             rowStart,
             rowSpan,
-            title: `Target: ${sec.course} (${sec.cohort})`,
-            subtitle: `${sec.sectionCode} · ${m.room ?? sec.room}`,
+            code: `Target: ${sec.course}`,
+            cohort: sec.cohort,
+            title: `${sec.course} (${sec.cohort} · ${sec.sectionCode})`,
+            room,
+            timeString,
+            instructor: sec.instructor,
+            units: 2,
+            format: sec.termDates,
             kind: "swap_target",
             hasConflict: false,
             swapState: state,
@@ -559,8 +690,8 @@ export function HalfHourGrid({
       </div>
 
       {/* 30-Minute Calendar Matrix */}
-      <div className="max-h-[585px] select-none overflow-auto bg-white">
-        <div className="min-w-[640px]">
+      <div className="max-h-[600px] select-none overflow-auto bg-white">
+        <div className="min-w-[700px]">
           {/* Sticky Header Row */}
           <div className="sticky top-0 z-20 grid grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-[#E5E5EA] bg-[#FAFAFC]">
             <div className="border-r border-[#E5E5EA] px-2 py-2 text-xs font-medium text-[#6E6E73]">
@@ -584,7 +715,7 @@ export function HalfHourGrid({
                 <div key={startMin} className="contents">
                   <div
                     style={{ height: `${ROW_PX}px` }}
-                    className={`tabular-nums border-r border-[#E5E5EA] px-2 text-xs leading-[24px] ${
+                    className={`tabular-nums border-r border-[#E5E5EA] px-2 text-xs leading-[28px] ${
                       isHour
                         ? "border-t border-[#E5E5EA] font-medium text-[#6E6E73]"
                         : "border-t border-[#F2F2F7] text-[#6E6E73]"
@@ -602,7 +733,7 @@ export function HalfHourGrid({
                         style={{ height: `${ROW_PX}px` }}
                         onMouseDown={() => handleCellMouseDown(day, startMin)}
                         onMouseEnter={() => handleCellMouseEnter(day, startMin)}
-                        className={`border-r border-[#F2F2F7] transition-colors last:border-r-0 ${
+                        className={`p-1 border-r border-[#F2F2F7] transition-colors last:border-r-0 ${
                           isHour
                             ? "border-t border-[#E5E5EA]"
                             : "border-t border-[#F2F2F7]"
@@ -668,6 +799,11 @@ export function HalfHourGrid({
                       const widthPct = 100 / maxLane;
                       const leftPct = lane * widthPct;
 
+                      const isVeryShort = b.rowSpan === 1; // 30m (~24px)
+                      const isShort = b.rowSpan === 2; // 60m (~52px)
+                      const isMedium = b.rowSpan === 3; // 90m (~80px, e.g. 11:00 AM – 12:30 PM)
+                      const isTall = b.rowSpan >= 4; // 2h–3h+ (~108px–164px, e.g. 8:00 AM – 11:00 AM)
+
                       return (
                         <div
                           key={b.key}
@@ -677,40 +813,105 @@ export function HalfHourGrid({
                             left: `calc(${leftPct}% + 2px)`,
                             width: `calc(${widthPct}% - 4px)`,
                           }}
-                          className={`pointer-events-auto absolute z-10 flex flex-col justify-between overflow-hidden rounded-md border px-2 py-1 ${blockStyle(
+                          onClick={() => setSelectedBlock(b)}
+                          className={`pointer-events-auto absolute z-10 flex flex-col justify-start gap-1 overflow-hidden rounded-[5px] border p-2 text-left cursor-pointer transition-all hover:z-30 hover:shadow-md ${blockStyle(
                             b,
                           )}`}
+                          title={`${b.code}: ${b.title}\n📍 Location: ${b.room}\n🕒 Time: ${b.timeString}\n👤 Instructor: ${b.instructor || "Haas Faculty"}${b.units ? `\n🎓 Units: ${b.units}` : ""}${b.format ? `\n📅 Format: ${b.format}` : ""}${b.evaluation ? `\n⭐ Worth: ${b.evaluation.courseWorth?.toFixed(1)}/7 · Difficulty: ${b.evaluation.difficulty?.toFixed(1)}/7` : ""}`}
                         >
-                          <div className="flex items-start justify-between gap-1">
-                            <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold leading-tight">
+                          {/* Top Row: Dot indicator + Course code + Cohort + Units + Trash */}
+                          <div className="flex items-start justify-between gap-1 leading-tight">
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                               <span
                                 aria-hidden="true"
                                 className={`h-1.5 w-1.5 shrink-0 rounded-full ${blockDotColor(b)}`}
                               />
-                              <span className="truncate">{b.title}</span>
+                              <span className="font-semibold text-xs text-current tracking-tight">
+                                {b.code}
+                              </span>
+                              {b.cohort && (
+                                <span className="rounded bg-black/5 px-1 py-0.5 text-[11px] font-medium text-current">
+                                  {b.cohort}
+                                </span>
+                              )}
+                              {b.units !== undefined && b.units > 0 && !isVeryShort && (
+                                <span className="font-mono text-[11px] opacity-75 tabular-nums">
+                                  {b.units}u
+                                </span>
+                              )}
                             </div>
+
                             {b.removableInstanceId && (
                               <button
                                 type="button"
-                                onClick={() => void onRemoveCourse(b.removableInstanceId!)}
-                                aria-label="Remove from plan"
-                                className="shrink-0 rounded p-0.5 hover:bg-black/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void onRemoveCourse(b.removableInstanceId!);
+                                }}
+                                aria-label={`Remove ${b.code} from plan`}
+                                className="shrink-0 rounded p-0.5 text-current/70 hover:bg-black/10 hover:text-current"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             )}
                           </div>
 
-                          {b.rowSpan >= 2 && (
-                            <div className="truncate font-mono text-xs leading-tight opacity-90">
-                              {formatMinutes12h(b.startMin).replace(" ", "")}–
-                              {formatMinutes12h(b.endMin).replace(" ", "")} · {b.subtitle}
+                          {/* Full Course Title (wrapped and visible across lines!) */}
+                          {!isVeryShort ? (
+                            <div
+                              className={`font-semibold text-xs leading-[15px] break-words text-[#1D1D1F] ${
+                                isShort
+                                  ? "line-clamp-1"
+                                  : isMedium
+                                    ? "line-clamp-2"
+                                    : "line-clamp-3"
+                              }`}
+                            >
+                              {b.title}
+                            </div>
+                          ) : (
+                            <div className="truncate text-xs font-medium text-[#1D1D1F]">
+                              {b.title} · {b.room}
                             </div>
                           )}
 
+                          {/* Location / Where it is */}
+                          {!isVeryShort && (
+                            <div className="flex items-center gap-1 text-[11px] font-medium leading-tight text-current opacity-95">
+                              <MapPin className="h-3 w-3 shrink-0 text-current" />
+                              <span className={isShort ? "truncate" : "break-words"}>{b.room}</span>
+                            </div>
+                          )}
+
+                          {/* Time & Instructor */}
+                          {!isVeryShort && (
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[11px] leading-tight tabular-nums opacity-90">
+                              <span className="inline-flex items-center gap-0.5">
+                                <Clock className="h-2.5 w-2.5 shrink-0" />
+                                {b.timeString}
+                              </span>
+                              {b.instructor && !isShort && (
+                                <span className="truncate font-sans opacity-85">
+                                  · {b.instructor}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Extra info for tall blocks (ratings, format) */}
+                          {isTall && b.evaluation && (
+                            <div className="flex items-center gap-1 text-[11px] font-medium opacity-85">
+                              <Star className="h-2.5 w-2.5 shrink-0 fill-amber-400 text-amber-500" />
+                              <span>Worth: {b.evaluation.courseWorth?.toFixed(1)}/7</span>
+                              <span>·</span>
+                              <span>Diff: {b.evaluation.difficulty?.toFixed(1)}/7</span>
+                            </div>
+                          )}
+
+                          {/* Swap status badge */}
                           {b.swapLabel && (
                             <div
-                              className={`inline-flex items-center gap-1 truncate text-xs font-semibold ${
+                              className={`inline-flex items-center gap-1 text-xs font-semibold ${
                                 b.swapState === "matched"
                                   ? "text-[#0F6B4E]"
                                   : b.kind === "swap_target"
@@ -729,8 +930,9 @@ export function HalfHourGrid({
                             </div>
                           )}
 
+                          {/* Conflict notice */}
                           {b.hasConflict && b.conflictText && !b.swapLabel && (
-                            <div className="inline-flex items-center gap-1 truncate text-xs font-semibold text-[#B42318]">
+                            <div className="inline-flex items-center gap-1 text-xs font-semibold text-[#B42318]">
                               <AlertTriangle className="h-3 w-3 shrink-0" />
                               <span className="truncate">{b.conflictText}</span>
                             </div>
@@ -763,6 +965,7 @@ export function HalfHourGrid({
                   <span className="font-medium text-[#1D1D1F]">{entry.name}</span>{" "}
                   <span className="text-[#6E6E73]">
                     · {entry.dayLabel ?? entry.part} {entry.timeLabel ?? ""} · {entry.units}u
+                    {entry.meetings?.[0]?.room ? ` · 📍 ${formatRoomName(entry.meetings[0].room)}` : ""}
                   </span>
                 </div>
                 <button
@@ -798,6 +1001,186 @@ export function HalfHourGrid({
           )}
         </div>
       )}
+
+      {/* Course Detail Inspector Popover Modal */}
+      {selectedBlock &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="course-detail-title"
+            onClick={() => setSelectedBlock(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-[10px] border border-[#E5E5EA] bg-white p-5 shadow-2xl space-y-4"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-[#E5E5EA] pb-3">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className={`h-2 w-2 rounded-full ${blockDotColor(selectedBlock)}`}
+                    />
+                    <span className="font-semibold text-xs tracking-tight text-[#003262]">
+                      {selectedBlock.code}
+                    </span>
+                    {selectedBlock.cohort && (
+                      <span className="rounded bg-[#003262]/10 px-1.5 py-0.5 text-[11px] font-semibold text-[#003262]">
+                        Cohort {selectedBlock.cohort}
+                      </span>
+                    )}
+                    {selectedBlock.units !== undefined && selectedBlock.units > 0 && (
+                      <span className="rounded bg-[#E5E5EA] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#48484A]">
+                        {selectedBlock.units} units
+                      </span>
+                    )}
+                  </div>
+                  <h3
+                    id="course-detail-title"
+                    className="text-base font-semibold leading-snug tracking-tight text-[#1D1D1F]"
+                  >
+                    {selectedBlock.title}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBlock(null)}
+                  aria-label="Close details"
+                  className="rounded-md p-1 text-[#6E6E73] hover:bg-[#F5F5F7] hover:text-[#1D1D1F]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Body Details */}
+              <div className="space-y-2.5 text-xs">
+                {/* Location / Where it is */}
+                <div className="flex items-start gap-2.5 rounded-[7px] bg-[#F5F5F7] p-2.5">
+                  <MapPin className="h-4 w-4 shrink-0 text-[#003262] mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-[#1D1D1F]">Location & Classroom</div>
+                    <div className="font-medium text-[#003262] text-sm">{selectedBlock.room}</div>
+                  </div>
+                </div>
+
+                {/* Meeting Time & Day */}
+                <div className="flex items-start gap-2.5 rounded-[7px] bg-[#F5F5F7] p-2.5">
+                  <Clock className="h-4 w-4 shrink-0 text-[#003262] mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-[#1D1D1F]">Meeting Schedule</div>
+                    <div className="text-[#48484A] font-medium">
+                      Every {selectedBlock.day} · {selectedBlock.timeString}
+                      {selectedBlock.format && ` (${selectedBlock.format})`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instructor */}
+                <div className="flex items-start gap-2.5 rounded-[7px] bg-[#F5F5F7] p-2.5">
+                  <User className="h-4 w-4 shrink-0 text-[#003262] mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-[#1D1D1F]">Instructor</div>
+                    <div className="text-[#48484A] font-medium">
+                      {selectedBlock.instructor || "Haas Faculty"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Course Evaluation Ratings if available */}
+                {selectedBlock.evaluation && (
+                  <div className="rounded-[7px] border border-[#E5E5EA] bg-[#FAFAFC] p-3 space-y-2">
+                    <div className="flex items-center gap-1.5 font-semibold text-[#1D1D1F]">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                      <span>
+                        Haas Course Evaluations ({selectedBlock.evaluation.evalTerm || "Historical"})
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded bg-white p-2 border border-[#E5E5EA]">
+                        <div className="text-[11px] text-[#6E6E73]">Course Worth</div>
+                        <div className="font-semibold text-sm text-[#1D1D1F]">
+                          {selectedBlock.evaluation.courseWorth?.toFixed(2) ?? "—"}/7
+                        </div>
+                      </div>
+                      <div className="rounded bg-white p-2 border border-[#E5E5EA]">
+                        <div className="text-[11px] text-[#6E6E73]">Instructor</div>
+                        <div className="font-semibold text-sm text-[#1D1D1F]">
+                          {selectedBlock.evaluation.instructorEffectiveness?.toFixed(2) ?? "—"}/7
+                        </div>
+                      </div>
+                      <div className="rounded bg-white p-2 border border-[#E5E5EA]">
+                        <div className="text-[11px] text-[#6E6E73]">Difficulty</div>
+                        <div className="font-semibold text-sm text-[#1D1D1F]">
+                          {selectedBlock.evaluation.difficulty?.toFixed(2) ?? "—"}/7
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Conflict or swap status banner inside popover */}
+                {selectedBlock.hasConflict && selectedBlock.conflictText && (
+                  <div className="flex items-center gap-2 rounded-[7px] border border-[#FECACA] bg-[#FEF2F2] p-2.5 text-xs font-semibold text-[#991B1B]">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>{selectedBlock.conflictText}</span>
+                  </div>
+                )}
+                {selectedBlock.swapLabel && (
+                  <div className="flex items-center gap-2 rounded-[7px] border border-[#B8CBE0] bg-[#F0F5FA] p-2.5 text-xs font-semibold text-[#003262]">
+                    <ArrowRightLeft className="h-4 w-4 shrink-0" />
+                    <span>{selectedBlock.swapLabel}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex items-center justify-between border-t border-[#E5E5EA] pt-3">
+                {selectedBlock.syllabusUrl ? (
+                  <a
+                    href={selectedBlock.syllabusUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[#003262] hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>View Syllabus</span>
+                  </a>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  {selectedBlock.removableInstanceId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = selectedBlock.removableInstanceId!;
+                        setSelectedBlock(null);
+                        void onRemoveCourse(id);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-[6px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-1.5 text-xs font-medium text-[#991B1B] hover:bg-[#FEE2E2]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBlock(null)}
+                    className="rounded-[6px] bg-[#003262] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#002145]"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computeCourseDemandFromProfiles } from "@/lib/api";
 import {
   catalogCourseToPlannedRecord,
+  FALL_2026_COURSES,
   OLR_SPRING_2027_RULES,
   SPRING_2027_COURSES,
 } from "@/data/catalog";
@@ -11,6 +12,10 @@ import {
 } from "@/lib/courseCatalogManager";
 import { DEMO_PROFILES } from "@/data/demoSeed";
 import { createMengFixedCourseRecord, MENG_TRACKS } from "@/data/mengRequirements";
+import {
+  formatRoomName,
+  resolveBlockLocation,
+} from "../src/components/HalfHourGrid";
 import {
   applyCatalogUpdates,
   getDefaultSectionsForCohort,
@@ -1020,5 +1025,67 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(SECTIONS.find((s) => s.id === "Macro-201B.1A")?.daysTimeLabel).toBe(
       "Mon/Wed 9:00–11:00 AM",
     );
+  });
+
+  it("resolves course location and preserves full course title, room, and info without truncation", () => {
+    // 1. Room name normalizer
+    expect(formatRoomName("N300 Chou")).toBe("N300 Chou");
+    expect(formatRoomName("C210Cheit")).toBe("C210 Cheit");
+    expect(formatRoomName(null)).toBe("Haas Campus");
+    expect(formatRoomName("")).toBe("Haas Campus");
+
+    // 2. Negotiations MBA252.1 has room 'N300 Chou'
+    const mba252 = SPRING_2027_COURSES.find((c) => c.code === "MBA252.1");
+    expect(mba252).toBeDefined();
+    expect(mba252?.name).toBe("Negotiations and Conflict Resolution");
+
+    const plannedRecord = catalogCourseToPlannedRecord(mba252!, "Y1_Spring");
+    expect(plannedRecord.name).toBe("Negotiations and Conflict Resolution");
+
+    const resolvedRoom = resolveBlockLocation(
+      plannedRecord,
+      plannedRecord.meetings[0],
+      undefined,
+      mba252,
+    );
+    expect(resolvedRoom).toBe("N300 Chou");
+
+    // 3. Managing New Product Development MBA290N.1
+    const mba290n = FALL_2026_COURSES.find((c) => c.code === "MBA290N.1");
+    expect(mba290n).toBeDefined();
+    expect(mba290n?.name).toBe("Managing the New Product Development Process");
+
+    const planned290 = catalogCourseToPlannedRecord(mba290n!, "Y1_Fall");
+    const room290 = resolveBlockLocation(
+      planned290,
+      planned290.meetings[0],
+      undefined,
+      mba290n,
+    );
+    expect(room290).toBe("Haas Campus");
+
+    // 4. Core Macro section resolves to section room
+    const macroSec = SECTION_BY_ID["Macro-201B.2A"];
+    expect(macroSec).toBeDefined();
+    const coreRoom = resolveBlockLocation(
+      {
+        instanceId: "test:core",
+        semesterId: "Y1_Spring",
+        courseId: macroSec.id,
+        code: macroSec.course,
+        name: "Macroeconomics in the Global Economy",
+        units: 2,
+        instructors: macroSec.instructor,
+        part: "A",
+        meetings: macroSec.meetings,
+        status: "planned",
+        isCore: true,
+        certificates: [],
+        dataSource: "haas",
+      },
+      macroSec.meetings[0],
+      macroSec,
+    );
+    expect(coreRoom).toBe("N470");
   });
 });
