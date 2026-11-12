@@ -138,11 +138,8 @@ export function buildCalendarExportEvents(
 
       const rruleDays = validDays.map((d) => DAY_MAP[d].byday);
 
-      // Format UNTIL as UTC string YYYYMMDDTHHmmssZ
-      const untilYear = termEnd.getUTCFullYear();
-      const untilMonth = String(termEnd.getUTCMonth() + 1).padStart(2, "0");
-      const untilDay = String(termEnd.getUTCDate()).padStart(2, "0");
-      const untilDateStr = `${untilYear}${untilMonth}${untilDay}T235959Z`;
+      // Format UNTIL as standard UTC string YYYYMMDDTHHmmssZ
+      const untilDateStr = termEnd.toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
 
       const room = meeting.room?.trim()
         ? `${meeting.room}, Haas School of Business, UC Berkeley`

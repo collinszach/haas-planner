@@ -9,7 +9,6 @@ import { MarketPulse } from "@/components/MarketPulse";
 import { MatchesPanel } from "@/components/MatchesPanel";
 import { Navbar, type AppTab } from "@/components/Navbar";
 import { ProfileSetup } from "@/components/ProfileSetup";
-import { QuickTourModal } from "@/components/QuickTourModal";
 import { DEFAULT_SECTIONS, DEFAULT_SWAP_WINDOWS } from "@/data/sections";
 import {
   adminResetAcademicYear,
@@ -85,7 +84,6 @@ export function App() {
   const [activeSemester, setActiveSemester] = useState<SemesterId>("Y1_Spring");
   const [editingProfile, setEditingProfile] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [showTour, setShowTour] = useState(false);
   const [mobileWorkbenchView, setMobileWorkbenchView] = useState<"schedule" | "catalog">(
     "schedule",
   );
@@ -249,13 +247,6 @@ export function App() {
       supabase?.removeChannel(channel);
     };
   }, [mode, authUserId, loadDashboard, showToast]);
-
-  useEffect(() => {
-    const completed = localStorage.getItem("haas_tour_completed");
-    if (!completed && profile && profile.fullName.trim()) {
-      setShowTour(true);
-    }
-  }, [profile]);
 
   const handleEnterSandbox = async () => {
     const uid = getActiveSandboxUserId();
@@ -532,7 +523,6 @@ export function App() {
         onSwitchDemoUser={handleSwitchDemoUser}
         onResetSandbox={handleResetSandbox}
         onOpenProfile={() => setEditingProfile(true)}
-        onOpenTour={() => setShowTour(true)}
         onSignOut={handleSignOut}
       />
 
@@ -853,8 +843,6 @@ export function App() {
           </div>
         )}
       </main>
-
-      <QuickTourModal isOpen={showTour} onClose={() => setShowTour(false)} />
     </div>
   );
 }

@@ -5,20 +5,16 @@ import {
   downloadIcsFile,
   generateGoogleCalendarEventUrl,
   generateIcsFileContent,
-  pushEventsToGoogleCalendar,
 } from "@/lib/googleCalendar";
 import type { SemesterId } from "@/types/planner";
 import type { PlannedCourseRecord } from "@/types/swap";
 import {
-  AlertCircle,
   Calendar,
   CheckCircle2,
   Clock,
   Download,
   ExternalLink,
   MapPin,
-  RefreshCw,
-  Sparkles,
   User,
   X,
 } from "lucide-react";
@@ -36,13 +32,7 @@ export function GoogleCalendarExportModal({
   semesterId,
   plannedEntries,
 }: GoogleCalendarExportModalProps) {
-  const [isPushing, setIsPushing] = useState(false);
-  const [pushResult, setPushResult] = useState<{
-    success: boolean;
-    createdCount: number;
-    calendarUrl?: string;
-    errors?: string[];
-  } | null>(null);
+  const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   const dateRange =
     BERKELEY_SEMESTER_DATES[semesterId] ?? BERKELEY_SEMESTER_DATES.Y1_Spring;
@@ -53,74 +43,12 @@ export function GoogleCalendarExportModal({
 
   if (!isOpen) return null;
 
-  const handleDownloadIcs = (openGoogleImport = false) => {
+  const handleDownloadIcs = () => {
     const calendarTitle = `Haas MBA - ${dateRange.name}`;
     const icsContent = generateIcsFileContent(exportEvents, calendarTitle);
     const filename = `haas-${dateRange.name.toLowerCase().replace(/\s+/g, "-")}-schedule.ics`;
     downloadIcsFile(filename, icsContent);
-
-    if (openGoogleImport) {
-      window.open(
-        "https://calendar.google.com/calendar/u/0/r/settings/export",
-        "_blank",
-        "noopener,noreferrer",
-      );
-    }
-  };
-
-  const handleDirectGooglePush = async () => {
-    setIsPushing(true);
-    setPushResult(null);
-
-    // Check if Google Identity Services is available in window
-    const gWindow = window as any;
-    const clientId =
-      (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
-      "1022839951820-berkeleyhaas.apps.googleusercontent.com"; // Standard Haas OAuth Client placeholder
-
-    if (gWindow.google?.accounts?.oauth2) {
-      try {
-        const client = gWindow.google.accounts.oauth2.initTokenClient({
-          client_id: clientId,
-          scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar",
-          callback: async (tokenResponse: any) => {
-            if (tokenResponse.error) {
-              setPushResult({
-                success: false,
-                createdCount: 0,
-                errors: [tokenResponse.error_description || tokenResponse.error],
-              });
-              setIsPushing(false);
-              return;
-            }
-
-            const res = await pushEventsToGoogleCalendar(
-              tokenResponse.access_token,
-              exportEvents,
-              `Haas MBA Schedule (${dateRange.name})`,
-            );
-            setPushResult(res);
-            setIsPushing(false);
-          },
-        });
-        client.requestAccessToken();
-        return;
-      } catch (err: any) {
-        console.warn("Google OAuth init error, falling back to download & import:", err);
-      }
-    }
-
-    // Direct fallback if OAuth client is not loaded in current environment:
-    // Download the .ics file and open Google Calendar's native 1-click import page
-    setTimeout(() => {
-      handleDownloadIcs(true);
-      setPushResult({
-        success: true,
-        createdCount: exportEvents.length,
-        calendarUrl: "https://calendar.google.com/calendar/u/0/r/settings/export",
-      });
-      setIsPushing(false);
-    }, 600);
+    setDownloadSuccess(true);
   };
 
   return (
@@ -165,45 +93,29 @@ export function GoogleCalendarExportModal({
 
         {/* Modal Body */}
         <div className="max-h-[70vh] overflow-y-auto p-5 space-y-4 text-xs">
-          {/* Success / Error notification */}
-          {pushResult && (
-            <div
-              className={`rounded-[8px] border p-3.5 ${
-                pushResult.success
-                  ? "border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]"
-                  : "border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]"
-              }`}
-            >
+          {/* Download Success Banner */}
+          {downloadSuccess && (
+            <div className="rounded-[8px] border border-[#A7F3D0] bg-[#ECFDF5] p-3 text-[#065F46]">
               <div className="flex items-start gap-2">
-                {pushResult.success ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#059669] mt-0.5" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 shrink-0 text-[#DC2626] mt-0.5" />
-                )}
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-[#059669] mt-0.5" />
                 <div className="flex-1 space-y-1">
-                  <p className="font-semibold">
-                    {pushResult.success
-                      ? `Successfully prepared ${pushResult.createdCount} course events for Google Calendar!`
-                      : "Calendar Export encountered an issue."}
+                  <p className="font-semibold text-xs">
+                    Calendar file downloaded successfully!
                   </p>
-                  {pushResult.calendarUrl && (
+                  <p className="text-[11px] text-[#065F46]/90">
+                    On Mac, open the downloaded <code className="font-mono bg-white/60 px-1 py-0.5 rounded">.ics</code> file to add your classes to Apple Calendar or Google Calendar instantly.
+                  </p>
+                  <div className="pt-1">
                     <a
-                      href={pushResult.calendarUrl}
+                      href="https://calendar.google.com/calendar/r/settings/export"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-medium text-[#003262] underline hover:text-[#002145]"
+                      className="inline-flex items-center gap-1 font-semibold text-[#003262] underline hover:text-[#002145]"
                     >
-                      <span>Open Google Calendar to View</span>
+                      <span>Open Google Calendar Import Page</span>
                       <ExternalLink className="h-3 w-3" />
                     </a>
-                  )}
-                  {pushResult.errors && pushResult.errors.length > 0 && (
-                    <ul className="list-disc pl-4 text-[11px] text-[#991B1B] space-y-0.5">
-                      {pushResult.errors.map((err, i) => (
-                        <li key={i}>{err}</li>
-                      ))}
-                    </ul>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -211,86 +123,65 @@ export function GoogleCalendarExportModal({
 
           {/* Quick Action Tiles */}
           <div className="grid gap-3 sm:grid-cols-2">
-            {/* Direct Google Calendar Sync */}
-            <div className="rounded-[8px] border border-[#BFDBFE] bg-[#EFF6FF] p-3.5 flex flex-col justify-between">
+            {/* Download .ICS (All Classes) */}
+            <div className="rounded-[8px] border border-[#003262]/20 bg-[#003262]/5 p-3.5 flex flex-col justify-between">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1E40AF]">
-                  <Sparkles className="h-3 w-3" />
-                  <span>Direct Google Calendar Sync</span>
+                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#003262]">
+                  <Download className="h-3 w-3" />
+                  <span>Import All Classes at Once</span>
                 </div>
                 <h3 className="font-semibold text-sm text-[#1D1D1F]">
-                  Push All Classes to Google
+                  Download Calendar File (.ics)
                 </h3>
                 <p className="text-[#48484A] leading-relaxed text-[11px]">
-                  Pushes your entire weekly schedule to your Berkeley Google Calendar with recurring lectures, rooms, and instructor notes.
+                  Exports all {exportEvents.length} class meetings, weekly recurrence rules, rooms, and professor notes into a standard calendar file.
                 </p>
               </div>
 
               <button
                 type="button"
-                disabled={isPushing || exportEvents.length === 0}
-                onClick={handleDirectGooglePush}
+                disabled={exportEvents.length === 0}
+                onClick={handleDownloadIcs}
                 className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-[6px] bg-[#003262] px-3 py-2 font-medium text-white shadow-xs hover:bg-[#002145] disabled:opacity-50"
               >
-                {isPushing ? (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    <span>Pushing to Google...</span>
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Push to Google Calendar</span>
-                  </>
-                )}
+                <Download className="h-3.5 w-3.5" />
+                <span>Download .ics Schedule</span>
               </button>
             </div>
 
-            {/* iCal / Google Calendar File Download */}
+            {/* Google Calendar Direct Import Link */}
             <div className="rounded-[8px] border border-[#E5E5EA] bg-[#FAFAFC] p-3.5 flex flex-col justify-between">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#6E6E73]">
-                  <Download className="h-3 w-3" />
-                  <span>Universal iCalendar (.ics)</span>
+                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#48484A]">
+                  <ExternalLink className="h-3 w-3" />
+                  <span>Google Calendar Web</span>
                 </div>
                 <h3 className="font-semibold text-sm text-[#1D1D1F]">
-                  Download Calendar File
+                  Google Calendar Import
                 </h3>
                 <p className="text-[#48484A] leading-relaxed text-[11px]">
-                  Download an RFC 5545 `.ics` file ready to import directly into Google Calendar, Apple Calendar, or Outlook.
+                  Opens Google Calendar's import page where you can upload your downloaded schedule file in seconds.
                 </p>
               </div>
 
-              <div className="mt-3 flex gap-1.5">
-                <button
-                  type="button"
-                  disabled={exportEvents.length === 0}
-                  onClick={() => handleDownloadIcs(false)}
-                  className="flex-1 inline-flex items-center justify-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-2 font-medium text-[#1D1D1F] hover:bg-[#F5F5F7] disabled:opacity-50"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>Download .ics</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={exportEvents.length === 0}
-                  onClick={() => handleDownloadIcs(true)}
-                  title="Download .ics and open Google Calendar Import tab"
-                  className="inline-flex items-center justify-center gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2.5 py-2 font-medium text-[#003262] hover:bg-[#F0F4F8] disabled:opacity-50"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  <span>Import in Google</span>
-                </button>
-              </div>
+              <a
+                href="https://calendar.google.com/calendar/r/settings/export"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-2 font-medium text-[#003262] shadow-xs hover:bg-[#F0F4F8]"
+              >
+                <span>Go to Google Calendar Import</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             </div>
           </div>
 
-          {/* List of Scheduled Classes to Export */}
-          <div>
+          {/* List of Scheduled Classes to Export Individually */}
+          <div className="pt-2">
             <div className="flex items-center justify-between pb-1.5 text-xs font-semibold text-[#1D1D1F]">
-              <span>Classes in Schedule ({exportEvents.length})</span>
-              <span className="text-[#6E6E73] font-normal">
-                {dateRange.name} ({dateRange.startDate} – {dateRange.endDate})
+              <span>Individual Course Direct Web Links</span>
+              <span className="text-[#6E6E73] font-normal text-[11px]">
+                Click "Add to Google" on any class to open pre-filled in Google Calendar
               </span>
             </div>
 
@@ -351,10 +242,11 @@ export function GoogleCalendarExportModal({
                         href={gcalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-[5px] border border-[#D1D1D6] bg-white px-2 py-1 text-[11px] font-medium text-[#003262] hover:bg-[#F0F4F8]"
+                        className="inline-flex items-center gap-1 rounded-[5px] border border-[#003262]/20 bg-[#003262]/5 px-2.5 py-1.5 text-[11px] font-semibold text-[#003262] hover:bg-[#003262]/10 transition"
                       >
+                        <Calendar className="h-3 w-3" />
                         <span>Add to Google</span>
-                        <ExternalLink className="h-2.5 w-2.5" />
+                        <ExternalLink className="h-2.5 w-2.5 opacity-60" />
                       </a>
                     </div>
                   );
