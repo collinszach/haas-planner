@@ -130,6 +130,55 @@ export function berkeleyClassToPlannedRecord(
   };
 }
 
+export function berkeleyClassToCatalogCourse(
+  cls: BerkeleyClassResult,
+  semesterId: SemesterId,
+): CatalogCourse {
+  const code = `${cls.subject} ${cls.courseNumber}`;
+  const seatsLeft =
+    cls.maxEnroll != null && cls.enrolledCount != null
+      ? Math.max(0, cls.maxEnroll - cls.enrolledCount)
+      : undefined;
+
+  return {
+    id: cls.id,
+    code,
+    baseCode: code,
+    name: cls.title,
+    units: cls.units,
+    instructors: cls.instructors,
+    season: semesterId.includes("Spring") ? "Spring" : "Fall",
+    termYear: `${cls.semester} ${cls.year}`,
+    dayLabel: cls.dayLabel,
+    timeLabel: cls.timeLabel,
+    format: `${cls.semester} ${cls.year} (Campus)`,
+    meetingDates: "",
+    part: "Full",
+    meetings: cls.meetings,
+    dualListed: null,
+    isSelectionCourse: false,
+    noAddDrop: false,
+    experiential: false,
+    businessTech: false,
+    certificates: [],
+    primaryFunction: null,
+    secondaryFunction: null,
+    primaryIndustry: null,
+    secondaryIndustry: null,
+    notes: null,
+    isOnline: false,
+    syllabusUrl: null,
+    ccn: null,
+    evaluation: cls.evaluation,
+    bidOutHistory: [],
+    bidRisk: "low",
+    dataSource: "berkeley",
+    olrCapacity: cls.maxEnroll ?? undefined,
+    olrFilled: cls.enrolledCount ?? undefined,
+    olrAvailable: seatsLeft,
+  };
+}
+
 export const OLR_SPRING_2027_RULES = {
   roundId: 932,
   roundLabel: "Spring 2027 First-Year Bidding",

@@ -76,7 +76,6 @@ export function App() {
   const [sections, setSections] = useState<SectionInfo[]>(DEFAULT_SECTIONS);
   const [swapWindows, setSwapWindows] = useState<SwapWindow[]>(DEFAULT_SWAP_WINDOWS);
   const [programConfig, setProgramConfig] = useState<ProgramConfig>(DEFAULT_CONFIG);
-  const [courseDemand, setCourseDemand] = useState<Record<string, number>>({});
   const [demoProfiles, setDemoProfiles] = useState<StudentProfile[]>(() =>
     getSandboxProfiles(),
   );
@@ -108,7 +107,6 @@ export function App() {
       setSections(data.sections);
       setSwapWindows(data.swapWindows);
       setProgramConfig(data.programConfig);
-      setCourseDemand(data.courseDemand);
       if (runMode === "sandbox") {
         setDemoProfiles(getSandboxProfiles());
       }
@@ -296,29 +294,6 @@ export function App() {
     showToast("Profile and planner baseline saved.");
   };
 
-  const handleSwitchClassYear = async (nextYear: "Y1" | "Y2") => {
-    if (!profile || (profile.classYear ?? "Y1") === nextYear) return;
-    const runMode = mode === "live" ? "live" : "sandbox";
-    const nextGradYear = nextYear === "Y2" ? 2027 : 2028;
-    const updated: StudentProfile = {
-      ...profile,
-      classYear: nextYear,
-      graduationYear: nextGradYear,
-    };
-    setProfile(updated);
-    if (nextYear === "Y2" && (activeSemester === "Y1_Fall" || activeSemester === "Y1_Spring")) {
-      setActiveSemester("Y2_Spring");
-    } else if (nextYear === "Y1" && (activeSemester === "Y2_Fall" || activeSemester === "Y2_Spring")) {
-      setActiveSemester("Y1_Spring");
-    }
-    await saveStudentProfile(runMode, updated);
-    showToast(
-      nextYear === "Y2"
-        ? "Switched to 2Y · Class of 2027 (Electives Only · Core Swaps hidden)."
-        : "Switched to 1Y · Class of 2028 (Core Curriculum & Swaps enabled).",
-    );
-  };
-
   const handleSaveBlockedSlots = async (nextSlots: TimeSlotToken[]) => {
     if (!profile) return;
     const runMode = mode === "live" ? "live" : "sandbox";
@@ -339,8 +314,6 @@ export function App() {
     };
     setProfile(updated);
     await saveStudentProfile(runMode, updated);
-    const refreshed = await fetchDashboardData(runMode, updated.id);
-    setCourseDemand(refreshed.courseDemand);
 
     const swapDiag =
       record.semesterId === "Y1_Spring"
@@ -373,21 +346,7 @@ export function App() {
     };
     setProfile(updated);
     await saveStudentProfile(runMode, updated);
-    const refreshed = await fetchDashboardData(runMode, updated.id);
-    setCourseDemand(refreshed.courseDemand);
     showToast("Course removed from plan.");
-  };
-
-  const handleUpdatePlannedBid = async (courseId: string, points: number) => {
-    if (!profile) return;
-    const runMode = mode === "live" ? "live" : "sandbox";
-    const clean = Math.max(0, Math.min(1000, Math.round(Number.isFinite(points) ? points : 0)));
-    const nextBids = { ...(profile.plannedBids ?? {}) };
-    if (clean === 0) delete nextBids[courseId];
-    else nextBids[courseId] = clean;
-    const updated: StudentProfile = { ...profile, plannedBids: nextBids };
-    setProfile(updated);
-    await saveStudentProfile(runMode, updated);
   };
 
   const handleSubmitSwap = async (payload: SubmitSwapPayload) => {
@@ -663,34 +622,16 @@ export function App() {
                   </div>
 
                   <div className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs text-[#6E6E73]">
-                    <div
-                      role="group"
-                      aria-label="Class Year"
-                      className="inline-flex rounded-[6px] bg-[#E5E5EA]/70 p-0.5 text-xs"
+                    <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#003262]/10 px-2.5 py-1 text-xs font-semibold text-[#003262]">
+                      {profile.classYear ?? "1Y"} · Class of {profile.graduationYear ?? 2028}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProfile(true)}
+                      className="text-xs font-medium text-[#003262] hover:underline"
                     >
-                      <button
-                        type="button"
-                        onClick={() => void handleSwitchClassYear("Y1")}
-                        className={`rounded-[4px] px-2 py-0.5 font-semibold transition ${
-                          !isY2
-                            ? "bg-white text-[#003262] shadow-xs"
-                            : "text-[#48484A] hover:text-[#1D1D1F]"
-                        }`}
-                      >
-                        1Y ('28)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleSwitchClassYear("Y2")}
-                        className={`rounded-[4px] px-2 py-0.5 font-semibold transition ${
-                          isY2
-                            ? "bg-white text-[#003262] shadow-xs"
-                            : "text-[#48484A] hover:text-[#1D1D1F]"
-                        }`}
-                      >
-                        2Y ('27)
-                      </button>
-                    </div>
+                      Edit in Profile
+                    </button>
                     {!isY2 && (
                       <>
                         <span>·</span>
@@ -765,10 +706,8 @@ export function App() {
                       profile={profile}
                       sections={sections}
                       marketPulse={marketPulse}
-                      courseDemand={courseDemand}
                       onAddCourse={handleAddPlannedCourse}
                       onRemoveCourse={handleRemovePlannedCourse}
-                      onUpdatePlannedBid={handleUpdatePlannedBid}
                     />
                   </div>
                 </div>

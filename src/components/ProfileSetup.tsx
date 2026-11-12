@@ -231,8 +231,8 @@ export function ProfileSetup({
             >
               <option value={2028}>Class of 2028 (1Y · First-Year)</option>
               <option value={2027}>Class of 2027 (2Y · Second-Year)</option>
-              <option value={2029}>Class of 2029 (1Y · Dual-Degree / Extended)</option>
-              <option value={2026}>Class of 2026 (2Y · Completed Core)</option>
+              <option value={2029}>Class of 2029 / Dec 2028 (2.5-Year MBA/MPH or Extended)</option>
+              <option value={2026}>Class of 2026 (Completed Core)</option>
             </select>
             <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#48484A]">
               <span className="font-medium text-[#1D1D1F]">Standing:</span>
@@ -278,6 +278,12 @@ export function ProfileSetup({
         ) : (
           <div className="rounded-[8px] border border-[#B8CBE0] bg-[#F0F5FA] p-3 text-xs text-[#003262]">
             <strong>Class of {graduationYear} (1Y):</strong> First-Year student taking Fall &amp; Spring Core curriculum. Core section swaps, blind FIFO queue, and cohort matching are active.
+          </div>
+        )}
+
+        {degreeTrack === "MBA_MPH" && (
+          <div className="rounded-[8px] border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-xs text-[#1E40AF]">
+            <strong>MBA / MPH Concurrent Program (2.5 Years · 5 Semesters):</strong> Concurrent degree offered by Haas and the UC Berkeley School of Public Health. Targets 45 MBA units and 22 Public Health units (67 units total). Default graduation is December 2028 (Class of 2029).
           </div>
         )}
 

@@ -6,7 +6,6 @@ import { getStoredCustomCourses } from "@/lib/courseCatalogManager";
 import { buildUnifiedPlanEntries } from "@/lib/degreeAudit";
 import {
   formatMinutes12h,
-  formatSlotTokenLabel,
   formatTimeRangeCompact,
   HALF_HOUR_STARTS,
   makeSlotToken,
@@ -993,25 +992,6 @@ export function HalfHourGrid({
         </div>
       )}
 
-      {/* Blocked intervals compact summary */}
-      {supportsBlockedOverlay && normalizedBlocks.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-[#E5E5EA] bg-[#FAFAFC] px-4 py-2.5 text-xs text-[#6E6E73] sm:px-5">
-          <span className="font-medium text-[#1D1D1F]">Blocked Windows:</span>
-          {normalizedBlocks.slice(0, 6).map((tok) => (
-            <span
-              key={tok}
-              className="rounded-[5px] bg-[#FFFBEB] px-2 py-0.5 tabular-nums text-xs text-[#92400E]"
-            >
-              {formatSlotTokenLabel(tok)}
-            </span>
-          ))}
-          {normalizedBlocks.length > 6 && (
-            <span className="tabular-nums text-xs text-[#6E6E73]">
-              +{normalizedBlocks.length - 6} more 30m slots
-            </span>
-          )}
-        </div>
-      )}
 
       {/* Course Detail Inspector Popover Modal */}
       {selectedBlock &&

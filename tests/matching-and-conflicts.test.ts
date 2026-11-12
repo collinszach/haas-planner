@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeCourseDemandFromProfiles } from "@/lib/api";
 import {
+  berkeleyClassToCatalogCourse,
   catalogCourseToPlannedRecord,
   FALL_2026_COURSES,
   OLR_SPRING_2027_RULES,
@@ -35,6 +36,7 @@ import {
 import {
   buildUnifiedPlanEntries,
   computeDegreeAudit,
+  DEGREE_TRACK_TARGETS,
   isGraduateCourse,
 } from "@/lib/degreeAudit";
 import {
@@ -1257,5 +1259,75 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(audit.nonHaasUnits).toBe(3);
     // Audit warnings must explicitly flag the undergraduate course
     expect(audit.warnings.some((w) => w.includes("COMPSCI 61A") && w.includes("undergraduate"))).toBe(true);
+  });
+
+  it("converts campus graduate courses into catalog courses with correct availability left and supports MBA/MPH 2.5-year targets", () => {
+    // 1. berkeleyClassToCatalogCourse converts and computes availability left
+    const mockBtClass = {
+      id: "bt-pbhlth200",
+      year: 2027,
+      semester: "Spring",
+      subject: "PBHLTH",
+      courseNumber: "200J",
+      sectionNumber: "001",
+      title: "Health Policy and Management",
+      units: 3,
+      instructors: "Robinson, J.",
+      averageGrade: 3.82,
+      enrolledCount: 35,
+      maxEnroll: 50,
+      dayLabel: "TuTh",
+      timeLabel: "2:00PM-3:30PM",
+      meetings: [],
+      evaluation: null,
+      sourceMode: "live" as const,
+    };
+
+    const catCourse = berkeleyClassToCatalogCourse(mockBtClass, "Y1_Spring");
+    expect(catCourse.code).toBe("PBHLTH 200J");
+    expect(catCourse.units).toBe(3);
+    expect(catCourse.dataSource).toBe("berkeley");
+    expect(catCourse.olrCapacity).toBe(50);
+    expect(catCourse.olrFilled).toBe(35);
+    // Availability left = 50 - 35 = 15
+    expect(catCourse.olrAvailable).toBe(15);
+
+    // 2. MBA/MPH 2.5-year concurrent degree targets (5 semesters)
+    const mphTargets = DEGREE_TRACK_TARGETS.MBA_MPH;
+    expect(mphTargets).toBeDefined();
+    expect(mphTargets.label).toContain("2.5 Years");
+    expect(mphTargets.mbaTarget).toBe(45);
+    expect(mphTargets.nonHaasCap).toBe(22);
+    expect(mphTargets.programTarget).toBe(67);
+
+    // 3. Audit computation for an MBA/MPH profile
+    const mphProfile = makeProfile({
+      degreeTrack: "MBA_MPH",
+      graduationYear: 2029,
+      classYear: "Y1",
+      plannedCourses: [
+        {
+          instanceId: "mph-c1",
+          semesterId: "Y1_Spring",
+          courseId: "bt-pbhlth200",
+          code: "PBHLTH 200J",
+          name: "Health Policy and Management",
+          units: 3,
+          instructors: "Robinson, J.",
+          part: "Full",
+          meetings: [],
+          status: "planned",
+          isCore: false,
+          certificates: [],
+          dataSource: "berkeley",
+        },
+      ],
+    });
+
+    const mphAudit = computeDegreeAudit(mphProfile);
+    expect(mphAudit.mbaUnitTarget).toBe(45);
+    expect(mphAudit.programUnitTarget).toBe(67);
+    expect(mphAudit.nonHaasCap).toBe(22);
+    expect(mphAudit.nonHaasUnits).toBe(3);
   });
 });

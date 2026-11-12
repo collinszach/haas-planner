@@ -34,8 +34,13 @@ export const DEGREE_TRACK_TARGETS: Record<
   DegreeTrack,
   { label: string; mbaTarget: number; programTarget: number; nonHaasCap: number }
 > = {
-  FTMBA: { label: "Full-Time MBA", mbaTarget: 51, programTarget: 51, nonHaasCap: 5 },
-  MBA_MPH: { label: "MBA / MPH Dual", mbaTarget: 45, programTarget: 67, nonHaasCap: 22 },
+  FTMBA: { label: "Full-Time MBA (2 Years)", mbaTarget: 51, programTarget: 51, nonHaasCap: 5 },
+  MBA_MPH: {
+    label: "MBA / MPH Dual (2.5 Years · 5 Semesters)",
+    mbaTarget: 45,
+    programTarget: 67,
+    nonHaasCap: 22,
+  },
   MBA_MENG: {
     label: "MBA / MEng Dual",
     mbaTarget: MBA_MENG_REQUIREMENTS.mbaCombinedTargetUnits,
