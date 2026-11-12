@@ -1,0 +1,704 @@
+import { describe, expect, it } from "vitest";
+import { catalogCourseToPlannedRecord, SPRING_2027_COURSES } from "@/data/catalog";
+import { DEMO_PROFILES } from "@/data/demoSeed";
+import {
+  applyCatalogUpdates,
+  getDefaultSectionsForCohort,
+  resetCatalogToDefaults,
+  SECTION_BY_ID,
+  SECTIONS,
+} from "@/data/sections";
+import {
+  detectPairedBundleConflicts,
+  detectSwapConflicts,
+} from "@/lib/conflicts";
+import {
+  autoGenerateSwapsFromPlan,
+  recommendCoursesForSemester,
+} from "@/lib/courseRecommender";
+import { computeDegreeAudit } from "@/lib/degreeAudit";
+import {
+  computeAnonymizedQueue,
+  computeMarketPulse,
+  confirmMatchInMemory,
+  releaseMatchInMemory,
+  submitAndMatchInMemory,
+  type MatchEngineState,
+} from "@/lib/matcher";
+import { auditLegacyGoogleSheetCsv } from "@/lib/sheetAuditor";
+import { buildSwapAdvisorReport } from "@/lib/swapAdvisor";
+import { meetingsOverlap, normalizeSlotTokens } from "@/lib/timeSlots";
+import type { StudentProfile, SwapRequest } from "@/types/swap";
+
+function makeProfile(overrides: Partial<StudentProfile>): StudentProfile {
+  const cohort = overrides.homeCohort ?? "Blue";
+  return {
+    id: overrides.id ?? "u1",
+    fullName: overrides.fullName ?? "Test Student",
+    email: overrides.email ?? "test@berkeley.edu",
+    studentId: overrides.studentId ?? "3031234567",
+    homeCohort: cohort,
+    waivedCourses: overrides.waivedCourses ?? [],
+    blockedSlots: overrides.blockedSlots ?? [],
+    currentSections:
+      overrides.currentSections ?? getDefaultSectionsForCohort(cohort),
+    degreeTrack: overrides.degreeTrack ?? "FTMBA",
+    targetCertificates: overrides.targetCertificates ?? [],
+    plannedCourses: overrides.plannedCourses ?? [],
+  };
+}
+
+describe("Schedule & Friday Discussion Conflict Engine", () => {
+  it("flags direct lecture collision when swapping Macro Blue -> Oski while in Ops Blue", () => {
+    const blueStudent = makeProfile({ homeCohort: "Blue" });
+    const issues = detectSwapConflicts({
+      profile: blueStudent,
+      swapType: "single",
+      course: "Macro",
+      givingUpKey: "Macro-201B.1A", // gitleaks:allow
+      wantedKeys: ["Macro-201B.3A"],
+    });
+    expect(issues.some((i) => i.type === "double_booking")).toBe(true);
+    expect(issues.some((i) => (i.severity ?? "error") === "error")).toBe(true);
+  });
+
+  it("allows Macro Blue -> Oski if Ops is waived", () => {
+    const blueWaivedOps = makeProfile({
+      homeCohort: "Blue",
+      waivedCourses: ["Ops"],
+    });
+    const issues = detectSwapConflicts({
+      profile: blueWaivedOps,
+      swapType: "single",
+      course: "Macro",
+      givingUpKey: "Macro-201B.1A", // gitleaks:allow
+      wantedKeys: ["Macro-201B.3A"],
+    });
+    expect(issues.some((i) => (i.severity ?? "error") === "error")).toBe(false);
+  });
+
+  it("warns on Friday 11 AM discussion collision when swapping Macro Blue -> Axe while keeping Ops Blue", () => {
+    const blueStudent = makeProfile({ homeCohort: "Blue" });
+    const issues = detectSwapConflicts({
+      profile: blueStudent,
+      swapType: "single",
+      course: "Macro",
+      givingUpKey: "Macro-201B.1A", // gitleaks:allow
+      wantedKeys: ["Macro-201B.4A"],
+    });
+    expect(
+      issues.some((i) => i.message.includes("Friday discussion")),
+    ).toBe(true);
+    expect(issues.some((i) => i.severity === "warning")).toBe(true);
+  });
+
+  it("clears Friday discussion collision when Strategy + Ethics are paired Blue -> Axe", () => {
+    const blueStudent = makeProfile({ homeCohort: "Blue" });
+    const singleIssues = detectSwapConflicts({
+      profile: blueStudent,
+      swapType: "single",
+      course: "Ethics",
+      givingUpKey: "Ethics-207.1B", // gitleaks:allow
+      wantedKeys: ["Ethics-207.4B"],
+    });
+    expect(
+      singleIssues.some((i) => i.message.includes("Friday discussion")),
+    ).toBe(true);
+
+    // Paired Strategy Blue -> Axe + Ethics Blue -> Axe clears Friday collision cleanly
+    const pairedIssues = detectPairedBundleConflicts({
+      profile: blueStudent,
+      legs: [
+        {
+          course: "Strategy",
+          givingUpKey: "Strategy-209.1B", // gitleaks:allow
+          wantedKeys: ["Strategy-209.4B"],
+        },
+        {
+          course: "Ethics",
+          givingUpKey: "Ethics-207.1B", // gitleaks:allow
+          wantedKeys: ["Ethics-207.4B"],
+        },
+      ],
+    });
+    expect(pairedIssues.length).toBe(0);
+  });
+
+  it("flags blocked elective time conflicts", () => {
+    const student = makeProfile({
+      homeCohort: "Gold",
+      blockedSlots: ["SpringA:Thu_AM"],
+    });
+    const issues = detectSwapConflicts({
+      profile: student,
+      swapType: "single",
+      course: "Macro",
+      givingUpKey: "Macro-201B.2A", // gitleaks:allow
+      wantedKeys: ["Macro-201B.3A"],
+    });
+    expect(issues.some((i) => i.type === "blocked_slot")).toBe(true);
+  });
+});
+
+describe("Blind Automatching Engine", () => {
+  it("matches ranked preferences first and breaks ties strictly FIFO", () => {
+    let state: MatchEngineState = {
+      profiles: { ...DEMO_PROFILES },
+      requests: [],
+      matches: [],
+    };
+
+    // Liam (Oski) submits earlier seeking Gold (#1) or Blue (#2)
+    state = submitAndMatchInMemory(state, {
+      userId: "demo-liam",
+      swapType: "single",
+      legs: [
+        {
+          course: "Macro",
+          givingUpKey: "Macro-201B.3A", // gitleaks:allow
+          wantedKeys: ["Macro-201B.2A", "Macro-201B.1A"],
+          notes: "",
+        },
+      ],
+      nowIso: "2026-11-09T08:00:00Z",
+    }).nextState;
+
+    // Noah (Axe) submits wanting Gold (#1)
+    state = submitAndMatchInMemory(state, {
+      userId: "demo-noah",
+      swapType: "single",
+      legs: [
+        {
+          course: "Macro",
+          givingUpKey: "Macro-201B.4A", // gitleaks:allow
+          wantedKeys: ["Macro-201B.2A"],
+          notes: "",
+        },
+      ],
+      nowIso: "2026-11-09T08:05:00Z",
+    }).nextState;
+
+    // Maya (Gold) submits preferring Oski (#1) then Axe (#2) -> must match Liam (#1 + #1)
+    const res = submitAndMatchInMemory(state, {
+      userId: "demo-maya",
+      swapType: "single",
+      legs: [
+        {
+          course: "Macro",
+          givingUpKey: "Macro-201B.2A", // gitleaks:allow
+          wantedKeys: ["Macro-201B.3A", "Macro-201B.4A"],
+          notes: "",
+        },
+      ],
+      nowIso: "2026-11-09T08:10:00Z",
+    });
+
+    expect(res.newMatches).toHaveLength(1);
+    expect(res.newMatches[0].userAId).toBe("demo-maya");
+    expect(res.newMatches[0].userBId).toBe("demo-liam");
+    expect(res.newMatches[0].userARank).toBe(1);
+    expect(res.newMatches[0].userBRank).toBe(1);
+  });
+
+  it("handles Paired All-or-Nothing bundles and completes when second standalone leg arrives", () => {
+    let state: MatchEngineState = {
+      profiles: { ...DEMO_PROFILES },
+      requests: [],
+      matches: [],
+    };
+
+    // Maya submits paired Gold -> Oski for BOTH Macro and Ethics
+    const bundleRes = submitAndMatchInMemory(state, {
+      userId: "demo-maya",
+      swapType: "single",
+      legs: [
+        {
+          course: "Macro",
+          givingUpKey: "Macro-201B.2A", // gitleaks:allow
+          wantedKeys: ["Macro-201B.3A"],
+          notes: "",
+        },
+        {
+          course: "Ethics",
+          givingUpKey: "Ethics-207.2B", // gitleaks:allow
+          wantedKeys: ["Ethics-207.3B"],
+          notes: "",
+        },
+      ],
+      nowIso: "2026-11-09T08:00:00Z",
+    });
+    expect(bundleRes.newMatches).toHaveLength(0);
+    state = bundleRes.nextState;
+
+    // Liam submits ONLY Macro Oski -> Gold -> Maya's bundle waits until Ethics is also available!
+    const partialRes = submitAndMatchInMemory(state, {
+      userId: "demo-liam",
+      swapType: "single",
+      legs: [
+        {
+          course: "Macro",
+          givingUpKey: "Macro-201B.3A", // gitleaks:allow
+          wantedKeys: ["Macro-201B.2A"],
+          notes: "",
+        },
+      ],
+      nowIso: "2026-11-09T08:05:00Z",
+    });
+    expect(partialRes.newMatches).toHaveLength(0);
+    state = partialRes.nextState;
+
+    // Now Noah submits Ethics Oski -> Gold -> completes Maya's bundle across both partners!
+    const completeRes = submitAndMatchInMemory(state, {
+      userId: "demo-noah",
+      swapType: "single",
+      legs: [
+        {
+          course: "Ethics",
+          givingUpKey: "Ethics-207.3B", // gitleaks:allow
+          wantedKeys: ["Ethics-207.2B"],
+          notes: "",
+        },
+      ],
+      nowIso: "2026-11-09T08:10:00Z",
+    });
+
+    expect(completeRes.newMatches).toHaveLength(2);
+    expect(
+      completeRes.nextState.requests.every((r) => r.status === "matched"),
+    ).toBe(true);
+
+    // If Liam releases his Macro match, Maya and Noah are restored cleanly!
+    const afterRelease = releaseMatchInMemory(
+      completeRes.nextState,
+      completeRes.newMatches[0].id,
+      "demo-liam",
+      "Elective changed",
+    );
+    const liamReq = afterRelease.requests.find((r) => r.userId === "demo-liam");
+    const mayaReqs = afterRelease.requests.filter(
+      (r) => r.userId === "demo-maya",
+    );
+    const noahReq = afterRelease.requests.find((r) => r.userId === "demo-noah");
+
+    expect(liamReq?.status).toBe("cancelled");
+    expect(mayaReqs.every((r) => r.status === "active")).toBe(true);
+    expect(mayaReqs[0].queuePriorityAt).toBe("2026-11-09T08:00:00Z");
+    expect(noahReq?.status).toBe("active");
+  });
+
+  it("reveals timestamp plus Name, Email, and Student ID for both partners immediately on match", () => {
+    let state: MatchEngineState = {
+      profiles: { ...DEMO_PROFILES },
+      requests: [],
+      matches: [],
+    };
+    state = submitAndMatchInMemory(state, {
+      userId: "demo-noah",
+      swapType: "cohort",
+      legs: [
+        {
+          course: null,
+          givingUpKey: "Cohort-Axe", // gitleaks:allow
+          wantedKeys: ["Cohort-Blue"],
+          notes: "",
+        },
+      ],
+    }).nextState;
+
+    const matchRes = submitAndMatchInMemory(state, {
+      userId: "demo-sofia",
+      swapType: "cohort",
+      legs: [
+        {
+          course: null,
+          givingUpKey: "Cohort-Blue", // gitleaks:allow
+          wantedKeys: ["Cohort-Axe"],
+          notes: "",
+        },
+      ],
+    });
+
+    expect(matchRes.newMatches).toHaveLength(1);
+    const match = matchRes.newMatches[0];
+
+    expect(Date.parse(match.createdAt)).not.toBeNaN();
+    expect(match.emailSentA).toBe(false);
+    expect(match.emailSentB).toBe(false);
+    expect(match.partnerA?.fullName).toBe(DEMO_PROFILES["demo-sofia"].fullName);
+    expect(match.partnerA?.email).toBe(DEMO_PROFILES["demo-sofia"].email);
+    expect(match.partnerA?.studentId).toBe(DEMO_PROFILES["demo-sofia"].studentId);
+    expect(match.partnerB?.fullName).toBe(DEMO_PROFILES["demo-noah"].fullName);
+    expect(match.partnerB?.email).toBe(DEMO_PROFILES["demo-noah"].email);
+    expect(match.partnerB?.studentId).toBe(DEMO_PROFILES["demo-noah"].studentId);
+  });
+
+  it("computes anonymized market pulse without PII", () => {
+    const res = submitAndMatchInMemory(
+      { profiles: { ...DEMO_PROFILES }, requests: [], matches: [] },
+      {
+        userId: "demo-maya",
+        swapType: "single",
+        legs: [
+          {
+            course: "Ops",
+            givingUpKey: "Ops-204.2A", // gitleaks:allow
+            wantedKeys: ["Ops-204.3A", "Ops-204.1A"],
+            notes: "",
+          },
+        ],
+      },
+    );
+    const pulse = computeMarketPulse(res.nextState.requests);
+    expect(pulse).toHaveLength(2);
+    expect(pulse[0].activeCount).toBe(1);
+  });
+});
+
+describe("Legacy Google Sheet CSV Auditor", () => {
+  it("flags email typos, course mismatches, blank statuses, and duplicate rows", () => {
+    const sampleCsv = `
+Name,Berkeley email,Course,Section I'm in now,Would take: 1st choice,2nd choice,3rd choice,Status,Possible matches (auto),Matched with,Notes
+Erica Abraham,erica_abraham@berkley.edu,Macro,Macro 201B.1A | Blue | M/W AM,Macro 201B.2A | Gold | M/W PM,,,Submitted,"Zach",Maya,
+Caro Rosecliff,caro_Rosecliff@berkeley.edu,Ops,Strategy 209.3B | Oski | M/W AM,Strategy 209.4B | Axe | M/W PM,,,Looking,Amit,,
+Naman Ladsaria,naman_ladsaria@berkeley.edu,Ops,Ops 204.2A | Gold | Tu/Th PM,Ops 204.3A | Oski | M/W AM,,,,"Joie",,
+    `.trim();
+
+    const report = auditLegacyGoogleSheetCsv(sampleCsv);
+    expect(report.totalSingleRows).toBe(3);
+    expect(report.findings.some((f) => f.category === "EMAIL_TYPO")).toBe(
+      true,
+    );
+    expect(
+      report.findings.some((f) => f.category === "COURSE_SECTION_MISMATCH"),
+    ).toBe(true);
+    expect(report.findings.some((f) => f.category === "MISSING_STATUS")).toBe(
+      true,
+    );
+    expect(report.findings.some((f) => f.category === "STALE_MATCH")).toBe(
+      true,
+    );
+  });
+});
+
+describe("Swap Advisor & 30-Minute Planner Engine", () => {
+  it("ranks conflict-free single swaps ahead of warnings and boosts mirror liquidity", () => {
+    const profile = makeProfile({
+      homeCohort: "Blue",
+      blockedSlots: ["SpringB:Wed_AM"], // Collides with Ethics-207.1B (Blue)
+    });
+    const pulse = [
+      {
+        swapType: "single" as const,
+        course: "Ethics" as const,
+        givingUpKey: "Ethics-207.4B", // gitleaks:allow
+        wantedKey: "Ethics-207.1B", // gitleaks:allow
+        activeCount: 2,
+      },
+    ];
+
+    const report = buildSwapAdvisorReport({ profile, marketPulse: pulse });
+    expect(report.hasIssues).toBe(true);
+    expect(report.conflictingSections.map((c) => c.course)).toEqual(["Ethics"]);
+    expect(report.recommendations.length).toBeGreaterThan(0);
+
+    const ethicsSingle = report.recommendations.find((r) => r.id === "single-Ethics");
+    expect(ethicsSingle).toBeDefined();
+    // Ethics-207.3B (Thu AM) collides with Strategy-209.1B (Blue Tu/Th AM), so it must NOT be offered
+    expect(ethicsSingle?.legs[0]?.wantedKeys).not.toContain("Ethics-207.3B");
+    expect(ethicsSingle?.legs[0]?.wantedKeys).toContain("Ethics-207.4B");
+    expect(ethicsSingle?.liquidityCount).toBe(2);
+  });
+
+  it("recommends a paired swap when two courses in the same sub-term collide", () => {
+    const profile = makeProfile({
+      homeCohort: "Blue",
+      blockedSlots: ["SpringA:Mon_AM", "SpringA:Tue_AM"],
+    });
+
+    const report = buildSwapAdvisorReport({ profile, marketPulse: [] });
+    expect(report.conflictingSections.map((c) => c.course)).toEqual(["Macro", "Ops"]);
+    const pairedRec = report.recommendations.find((r) => r.kind === "paired");
+    expect(pairedRec).toBeDefined();
+    expect(pairedRec?.conflictingCourses).toEqual(["Macro", "Ops"]);
+  });
+});
+
+describe("Confirming a Match Updates Participant Schedules", () => {
+  it("updates both partners' currentSections immediately on single swap confirm", () => {
+    const startState: MatchEngineState = {
+      profiles: { ...DEMO_PROFILES },
+      requests: [],
+      matches: [],
+    };
+    const afterFirst = submitAndMatchInMemory(startState, {
+      userId: "demo-sofia",
+      swapType: "single",
+      legs: [
+        {
+          course: "Macro",
+          givingUpKey: "Macro-201B.1A", // gitleaks:allow
+          wantedKeys: ["Macro-201B.2A"],
+          notes: "",
+        },
+      ],
+    }).nextState;
+
+    const afterSecond = submitAndMatchInMemory(afterFirst, {
+      userId: "demo-maya",
+      swapType: "single",
+      legs: [
+        {
+          course: "Macro",
+          givingUpKey: "Macro-201B.2A", // gitleaks:allow
+          wantedKeys: ["Macro-201B.1A"],
+          notes: "",
+        },
+      ],
+    });
+
+    expect(afterSecond.newMatches).toHaveLength(1);
+    const matchId = afterSecond.newMatches[0].id;
+    const confirmed = confirmMatchInMemory(
+      afterSecond.nextState,
+      matchId,
+      "demo-sofia",
+    );
+
+    expect(confirmed.matches[0]?.status).toBe("confirmed");
+    expect(confirmed.profiles["demo-sofia"].currentSections.Macro).toBe(
+      "Macro-201B.2A",
+    );
+    expect(confirmed.profiles["demo-maya"].currentSections.Macro).toBe(
+      "Macro-201B.1A",
+    );
+  });
+
+  it("updates homeCohort and all 4 core sections on cohort swap confirm", () => {
+    const startState: MatchEngineState = {
+      profiles: { ...DEMO_PROFILES },
+      requests: [],
+      matches: [],
+    };
+    const afterFirst = submitAndMatchInMemory(startState, {
+      userId: "demo-noah",
+      swapType: "cohort",
+      legs: [
+        {
+          course: null,
+          givingUpKey: "Cohort-Axe", // gitleaks:allow
+          wantedKeys: ["Cohort-Blue"],
+          notes: "",
+        },
+      ],
+    }).nextState;
+
+    const afterSecond = submitAndMatchInMemory(afterFirst, {
+      userId: "demo-sofia",
+      swapType: "cohort",
+      legs: [
+        {
+          course: null,
+          givingUpKey: "Cohort-Blue", // gitleaks:allow
+          wantedKeys: ["Cohort-Axe"],
+          notes: "",
+        },
+      ],
+    });
+
+    const confirmed = confirmMatchInMemory(
+      afterSecond.nextState,
+      afterSecond.newMatches[0].id,
+      "demo-sofia",
+    );
+
+    expect(confirmed.profiles["demo-noah"].homeCohort).toBe("Blue");
+    expect(confirmed.profiles["demo-noah"].currentSections).toEqual(
+      getDefaultSectionsForCohort("Blue"),
+    );
+    expect(confirmed.profiles["demo-sofia"].homeCohort).toBe("Axe");
+    expect(confirmed.profiles["demo-sofia"].currentSections).toEqual(
+      getDefaultSectionsForCohort("Axe"),
+    );
+  });
+});
+
+describe("Chronological FIFO Queue & Dynamic Core Section Catalog", () => {
+  it("orders anonymized queue strictly by queuePriorityAt ASC and omits cancelled entries", () => {
+    const requests: SwapRequest[] = [
+      {
+        id: "r-late",
+        userId: "u2",
+        bundleId: null,
+        swapType: "single",
+        course: "Macro",
+        givingUpKey: "Macro-201B.1A", // gitleaks:allow
+        wantedKeys: ["Macro-201B.2A"],
+        notes: "",
+        status: "active",
+        queuePriorityAt: "2026-11-05T15:00:00Z",
+        createdAt: "2026-11-05T15:00:00Z",
+        updatedAt: "2026-11-05T15:00:00Z",
+      },
+      {
+        id: "r-cancelled",
+        userId: "u3",
+        bundleId: null,
+        swapType: "single",
+        course: "Ops",
+        givingUpKey: "Ops-204.1A", // gitleaks:allow
+        wantedKeys: ["Ops-204.2A"],
+        notes: "",
+        status: "cancelled",
+        queuePriorityAt: "2026-11-01T08:00:00Z",
+        createdAt: "2026-11-01T08:00:00Z",
+        updatedAt: "2026-11-01T08:00:00Z",
+      },
+      {
+        id: "r-early",
+        userId: "u1",
+        bundleId: null,
+        swapType: "single",
+        course: "Macro",
+        givingUpKey: "Macro-201B.2A", // gitleaks:allow
+        wantedKeys: ["Macro-201B.1A"],
+        notes: "",
+        status: "active",
+        queuePriorityAt: "2026-11-03T10:00:00Z",
+        createdAt: "2026-11-03T10:00:00Z",
+        updatedAt: "2026-11-03T10:00:00Z",
+      },
+    ];
+
+    const queue = computeAnonymizedQueue(requests, "u1");
+    expect(queue.map((q) => q.id)).toEqual(["r-early", "r-late"]);
+    expect(queue[0]?.isMine).toBe(true);
+    expect(queue[1]?.isMine).toBe(false);
+    expect("userId" in queue[0]).toBe(false);
+  });
+
+  it("overrides core class time slots dynamically and restores defaults cleanly", () => {
+    try {
+      const updated: typeof SECTIONS = SECTIONS.map((s) =>
+        s.id === "Macro-201B.1A"
+          ? {
+              ...s,
+              daysTimeLabel: "TBD",
+              fridayDiscussionLabel: "TBD",
+              lectureSlots: [],
+              fridaySlot: "" as (typeof SECTIONS)[number]["fridaySlot"],
+              makeupSlot: null,
+            }
+          : s,
+      );
+      applyCatalogUpdates({ sections: updated });
+      expect(SECTION_BY_ID["Macro-201B.1A"]?.daysTimeLabel).toBe("TBD");
+      expect(SECTION_BY_ID["Macro-201B.1A"]?.lectureSlots).toEqual([]);
+
+      resetCatalogToDefaults();
+      expect(SECTION_BY_ID["Macro-201B.1A"]?.daysTimeLabel).toBe(
+        "Mon/Wed 9:00–11:00 AM",
+      );
+      expect(SECTION_BY_ID["Macro-201B.1A"]?.lectureSlots).toEqual([
+        "SpringA:Mon_AM",
+        "SpringA:Wed_AM",
+      ]);
+    } finally {
+      resetCatalogToDefaults();
+    }
+  });
+});
+
+describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () => {
+  it("evaluates 30-minute boundary adjacency accurately without false overlaps", () => {
+    const coreBlock = { days: ["Mon" as const], startMin: 9 * 60, endMin: 11 * 60, part: "A" as const };
+    const adjacentElective = { days: ["Mon" as const], startMin: 11 * 60, endMin: 12 * 60 + 30, part: "Full" as const };
+    const thirtyMinOverlap = { days: ["Mon" as const], startMin: 10 * 60 + 30, endMin: 12 * 60, part: "Full" as const };
+
+    expect(meetingsOverlap(coreBlock, adjacentElective)).toBe(false);
+    expect(meetingsOverlap(coreBlock, thirtyMinOverlap)).toBe(true);
+  });
+
+  it("normalizes legacy AM/PM tokens into canonical 30-minute slots", () => {
+    const expanded = normalizeSlotTokens(["SpringA:Mon_AM", "SpringA:Wed_0930"]);
+    expect(expanded).toEqual([
+      "SpringA:Mon_0900",
+      "SpringA:Mon_0930",
+      "SpringA:Mon_1000",
+      "SpringA:Mon_1030",
+      "SpringA:Wed_0930",
+    ]);
+  });
+
+  it("auto-generates ready-to-submit Core swaps when a Y1 Spring elective collides with Core", () => {
+    const elective = SPRING_2027_COURSES.find(
+      (c) => c.meetings.some((m) => m.days.includes("Tue") && m.startMin >= 540 && m.startMin < 660 && !m.nonBlockingCore),
+    );
+    expect(elective).toBeDefined();
+
+    const blueStudent = makeProfile({
+      homeCohort: "Blue",
+      plannedCourses: elective ? [catalogCourseToPlannedRecord(elective, "Y1_Spring")] : [],
+    });
+
+    const diag = autoGenerateSwapsFromPlan({ profile: blueStudent });
+    expect(diag.legs.length).toBeGreaterThanOrEqual(1);
+    expect(diag.legs.some((l) => l.course === "Ops" || l.course === "Strategy")).toBe(true);
+    expect(diag.legs.every((l) => l.wantedKeys.length > 0)).toBe(true);
+  });
+
+  it("computes FTMBA 4-semester degree audit rules (20 core units, 5-unit non-Haas cap, recommender)", () => {
+    const firstSpring = SPRING_2027_COURSES.find((c) => c.meetings.length > 0 && c.units >= 2);
+    const baseProfile = makeProfile({
+      homeCohort: "Blue",
+      degreeTrack: "FTMBA",
+      targetCertificates: ["BA"],
+      plannedCourses: [
+        ...(firstSpring ? [catalogCourseToPlannedRecord(firstSpring, "Y1_Spring")] : []),
+        {
+          instanceId: "Y2_Fall:BT-INFO-C200",
+          semesterId: "Y2_Fall",
+          courseId: "BT-INFO-C200",
+          code: "INFO C200",
+          name: "Grad Info Architecture",
+          units: 4,
+          instructors: "Staff",
+          part: "Full",
+          meetings: [{ days: ["Tue"], startMin: 900, endMin: 1020, part: "Full" }],
+          status: "planned",
+          certificates: [],
+          dataSource: "berkeley",
+        },
+        {
+          instanceId: "Y2_Spring:BT-CS-288",
+          semesterId: "Y2_Spring",
+          courseId: "BT-CS-288",
+          code: "COMPSCI 288",
+          name: "Natural Language Processing",
+          units: 4,
+          instructors: "Staff",
+          part: "Full",
+          meetings: [{ days: ["Wed"], startMin: 900, endMin: 1020, part: "Full" }],
+          status: "planned",
+          certificates: [],
+          dataSource: "berkeley",
+        },
+      ],
+    });
+
+    const audit = computeDegreeAudit(baseProfile);
+    expect(audit.coreUnits).toBe(20);
+    expect(audit.coreCompletedCount).toBe(11);
+    expect(audit.nonHaasUnits).toBe(8);
+    expect(audit.nonHaasCap).toBe(5);
+    // 20 Core + elective + capped 5 non-Haas
+    expect(audit.validMbaUnits).toBe(20 + (firstSpring?.units ?? 0) + 5);
+    expect(audit.warnings.some((w) => w.includes("5-unit FTMBA cap"))).toBe(true);
+
+    const recs = recommendCoursesForSemester({
+      semesterId: "Y2_Fall",
+      profile: baseProfile,
+    });
+    expect(recs.length).toBeGreaterThan(20);
+    expect(recs[0]?.fills.length).toBeGreaterThan(0);
+  });
+});

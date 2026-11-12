@@ -1,0 +1,10 @@
+project_id = "haas-core-swap"
+
+[functions.submit-swap]
+verify_jwt = true
+
+[functions.release-match]
+verify_jwt = true
+
+[functions.send-match-email]
+verify_jwt = false

@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    color: #0F1E30;
+    background-color: #F4F6F9;
+  }
+
+  body {
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #0F1E30;
+    background-color: #F4F6F9;
+    margin: 0;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: "Barlow Condensed", "Barlow", sans-serif;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #55687D;
+    opacity: 1;
+  }
+
+  code,
+  kbd,
+  pre,
+  .font-mono {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
