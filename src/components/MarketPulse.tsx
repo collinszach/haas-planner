@@ -25,10 +25,6 @@ export function MarketPulse({ items, queue = [] }: MarketPulseProps) {
               <BarChart3 className="h-4 w-4 text-[#8A5300]" />
               Blind Market Pulse (Anonymized Liquidity)
             </h2>
-            <p className="mt-0.5 text-xs text-[#6E6E73]">
-              Aggregate waiting demand counts so you can gauge swap odds without exposing student
-              identities.
-            </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-md bg-[#FAFAFC] px-2.5 py-1 text-xs font-medium text-[#48484A]">
             <Lock className="h-3.5 w-3.5" />
@@ -84,10 +80,6 @@ export function MarketPulse({ items, queue = [] }: MarketPulseProps) {
               <Clock className="h-4 w-4 text-[#8A5300]" />
               FIFO Pool Queue (Ordered by Time of Input)
             </h2>
-            <p className="mt-0.5 text-xs text-[#6E6E73]">
-              All {queue.length} tracked swaps ordered oldest-first by submission timestamp. Earlier
-              submissions receive higher automatch priority.
-            </p>
           </div>
 
           <div className="inline-flex rounded-lg border border-[#E5E5EA] bg-[#FAFAFC] p-0.5 text-xs">

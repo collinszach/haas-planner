@@ -94,11 +94,6 @@ export function DegreeAuditView({
             <h2 className="text-base font-semibold tracking-[-0.01em] text-[#1D1D1F]">
               Haas MBA 4-Semester Degree Audit
             </h2>
-            <p className="mt-1 text-xs text-[#6E6E73]">
-              {audit.mengAudit
-                ? `Concurrent MBA/MEng tracking: ${audit.mbaUnitTarget} MBA units (20 Core + 22 Electives), 3u Capstone, 2u Gen MEng, and ${audit.mengAudit.engineeringMajorTargetUnits}u Major (${audit.programUnitTarget}u total).`
-                : `Live graduation progress across Core curriculum, ${audit.mbaUnitTarget}-unit MBA target, ${audit.nonHaasCap}-unit non-Haas allowance, Experiential Learning, and Certificates.`}
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -497,7 +492,7 @@ export function DegreeAuditView({
                             type="button"
                             onClick={() => void handleRemoveElective(r.instanceId)}
                             className="rounded p-1 text-[#B42318] hover:bg-[#FEECEB]"
-                            title="Remove course"
+                            aria-label="Remove course"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

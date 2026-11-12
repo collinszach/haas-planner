@@ -81,12 +81,6 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
               <h1 className="text-3xl font-semibold tracking-[-0.02em] text-[#1D1D1F] sm:text-4xl">
                 4-Semester MBA Planner &amp; Automated Core Swaps
               </h1>
-              <p className="mt-3 text-[14px] leading-relaxed text-[#48484A]">
-                Build your Fall and Spring Haas schedule on a 30-minute grid, track 51 MBA
-                units, experiential requirements, and certificates, search UC Berkeley graduate
-                classes, and auto-generate blind 1:1 Core Swaps when an elective overlaps your
-                cohort.
-              </p>
             </div>
 
             <dl className="divide-y divide-[#F2F2F7] rounded-[10px] border border-[#E5E5EA] bg-white">
@@ -94,30 +88,16 @@ export function AuthScreen({ onEnterSandbox, initialError }: AuthScreenProps) {
                 <dt className="text-[13px] font-semibold text-[#1D1D1F]">
                   Haas Ratings, Workload &amp; Bid Risk
                 </dt>
-                <dd className="mt-1 text-xs text-[#6E6E73]">
-                  Includes Fall 2026 and Spring 2027 schedules, course worth and instructor
-                  ratings (/7), difficulty workload tiers, certificate tags, and live student
-                  planner demand.
-                </dd>
               </div>
               <div className="px-5 py-3.5">
                 <dt className="text-[13px] font-semibold text-[#1D1D1F]">
                   30-Minute Collision &amp; Auto-Swap Engine
                 </dt>
-                <dd className="mt-1 text-xs text-[#6E6E73]">
-                  Adding a Spring elective or blocking half-hour intervals automatically computes
-                  zero-conflict single, paired all-or-nothing, or cohort trades in the blind
-                  FIFO queue.
-                </dd>
               </div>
               <div className="px-5 py-3.5">
                 <dt className="text-[13px] font-semibold text-[#1D1D1F]">
                   Live UC Berkeley Cross-Enrollment Search
                 </dt>
-                <dd className="mt-1 text-xs text-[#6E6E73]">
-                  Query campus non-MBA courses across Engineering, Law, Public Policy, and Data
-                  Science directly alongside your 5-unit non-Haas FTMBA cap.
-                </dd>
               </div>
             </dl>
           </div>

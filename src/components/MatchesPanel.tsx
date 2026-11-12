@@ -83,10 +83,6 @@ export function MatchesPanel({
               <ShieldCheck className="h-4 w-4 text-[#0F6B4E]" />
               My Verified Matches ({visibleMatches.length})
             </h2>
-            <p className="mt-0.5 text-xs text-[#6E6E73]">
-              Partner Name, Berkeley Email, Student ID, and match time unlock immediately once a
-              verified 1:1 mirror match locks.
-            </p>
           </div>
         </div>
 
@@ -423,10 +419,6 @@ export function MatchesPanel({
               <Clock className="h-4 w-4 text-[#8A5300]" />
               My Waiting Blind Requests ({activeRequests.length})
             </h2>
-            <p className="mt-0.5 text-xs text-[#6E6E73]">
-              Your unmatched requests waiting in FIFO order by Queue priority. Once a mirror partner
-              submits, this moves up to Verified Matches automatically — or click Withdraw to cancel.
-            </p>
           </div>
         </div>
 

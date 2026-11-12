@@ -371,9 +371,6 @@ export function AutoSwapTray({
               <h2 className="text-[13px] font-semibold text-[#1D1D1F]">
                 Waiting for Swap Match ({activeWaitingRequests.length})
               </h2>
-              <span className="hidden text-xs text-[#6E6E73] sm:inline">
-                Highlighted on timetable (dashed amber out → dashed blue #1 target)
-              </span>
             </div>
             {onOpenSwapWorkspace && (
               <button
@@ -460,14 +457,9 @@ export function AutoSwapTray({
                           : `Single Course (${unsubmittedLegs[0]?.course ?? "Course"})`}
                 </h2>
               </div>
-              <p className="mt-0.5 text-xs text-[#6E6E73]">
-                {modeOverride
-                  ? effectiveMode === "cohort"
-                    ? "Swapping cohorts moves all 4 Spring Core sections together in a single registrar switch."
-                    : `Swapping only ${unsubmittedLegs.map((l) => l.course).join(" + ")} keeps your remaining ${profile.homeCohort} Core classes intact.`
-                  : diag.recommendedReason ||
-                    "Your Y1 Spring electives or blocked intervals overlap Core sections below."}
-              </p>
+              {!modeOverride && diag.recommendedReason ? (
+                <p className="mt-0.5 text-xs text-[#6E6E73]">{diag.recommendedReason}</p>
+              ) : null}
             </div>
 
             {canToggleMode && (

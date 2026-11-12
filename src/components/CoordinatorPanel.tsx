@@ -351,9 +351,6 @@ export function CoordinatorPanel({
               <ShieldCheck className="h-4 w-4 text-[#0F6B4E]" />
               Designated Coordinators ({coordinators.length})
             </h2>
-            <p className="mt-0.5 text-xs text-[#6E6E73]">
-              Only accounts listed here can see or operate the Coordinator tab.
-            </p>
           </div>
           <form
             onSubmit={(e) => {
@@ -433,11 +430,6 @@ export function CoordinatorPanel({
                 <Settings2 className="h-4 w-4 text-[#FDB515]" />
                 Coordinator Controls: Timeline, Yearly Class &amp; Core Slot Resets
               </h2>
-              <p className="mt-0.5 text-xs text-[#6E6E73]">
-                Manage automatic matching timeline expiration, roll over the app
-                for a new academic year &amp; incoming cohorts, or reset/edit core
-                class time slots.
-              </p>
             </div>
             <span className="rounded-full bg-[#E8EFF7] px-2.5 py-1 text-xs font-semibold text-[#003262]">
               Active Cycle: {programConfig.cycleLabel} ({programConfig.academicYear})
@@ -870,11 +862,6 @@ export function CoordinatorPanel({
               <FileSearch className="h-4 w-4 text-[#FDB515]" />
               Legacy Google Sheet Auditor
             </h2>
-            <p className="mt-0.5 text-xs text-[#6E6E73]">
-              Paste raw CSV/sheet exports to automatically flag email typos,
-              mismatched Course tags, blank statuses, duplicate rows, and stale
-              one-sided matches.
-            </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
             <ShieldCheck className="h-3 w-3" />

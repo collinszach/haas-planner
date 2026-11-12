@@ -479,11 +479,6 @@ export function HalfHourGrid({
           <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
             Weekly Timetable
           </h2>
-          <p className="text-xs text-[#6E6E73]">
-            {supportsBlockedOverlay
-              ? "Click or drag empty 30-min cells (8:00 AM–9:30 PM) to mark personal time blocks."
-              : "Pick electives from the catalog inspector to populate your weekly schedule."}
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -607,11 +602,6 @@ export function HalfHourGrid({
                         style={{ height: `${ROW_PX}px` }}
                         onMouseDown={() => handleCellMouseDown(day, startMin)}
                         onMouseEnter={() => handleCellMouseEnter(day, startMin)}
-                        title={
-                          supportsBlockedOverlay
-                            ? `${day} ${formatMinutes12h(startMin)}–${formatMinutes12h(startMin + 30)} · Click/drag to ${isBlocked ? "unblock" : "block"}`
-                            : `${day} ${formatMinutes12h(startMin)}`
-                        }
                         className={`border-r border-[#F2F2F7] transition-colors last:border-r-0 ${
                           isHour
                             ? "border-t border-[#E5E5EA]"
@@ -681,9 +671,6 @@ export function HalfHourGrid({
                       return (
                         <div
                           key={b.key}
-                          title={`${b.title} (${formatMinutes12h(b.startMin)}–${formatMinutes12h(b.endMin)})${
-                            b.conflictText ? ` · ${b.conflictText}` : ""
-                          }${b.swapLabel ? ` · ${b.swapLabel}` : ""}`}
                           style={{
                             top: `${(b.rowStart - 1) * ROW_PX + 2}px`,
                             height: `${b.rowSpan * ROW_PX - 4}px`,
@@ -706,7 +693,7 @@ export function HalfHourGrid({
                               <button
                                 type="button"
                                 onClick={() => void onRemoveCourse(b.removableInstanceId!)}
-                                title="Remove from plan"
+                                aria-label="Remove from plan"
                                 className="shrink-0 rounded p-0.5 hover:bg-black/10"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />

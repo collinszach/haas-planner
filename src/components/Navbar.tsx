@@ -165,7 +165,7 @@ export function Navbar({
               <button
                 type="button"
                 onClick={onResetSandbox}
-                title="Reset demo data"
+                aria-label="Reset demo data"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#D1D1D6] bg-white text-[#48484A] transition hover:text-[#1D1D1F]"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -202,7 +202,7 @@ export function Navbar({
           <button
             type="button"
             onClick={onSignOut}
-            title="Sign out"
+            aria-label="Sign out"
             className="inline-flex h-7 items-center gap-1 rounded-[6px] px-2 text-xs font-medium text-[#6E6E73] transition hover:bg-[#E5E5EA] hover:text-[#1D1D1F]"
           >
             <LogOut className="h-3.5 w-3.5" />
