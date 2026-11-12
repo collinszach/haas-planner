@@ -39,6 +39,13 @@ const COHORT_SUMMARY: Record<CohortName, string> = {
 
 const CERT_CODES: CertificateCode[] = ["BA", "SB", "AI", "RE"];
 
+export function classYearFromGraduationYear(
+  gradYear: number,
+  currentAcademicEndYear: number = 2027,
+): "Y1" | "Y2" {
+  return gradYear <= currentAcademicEndYear ? "Y2" : "Y1";
+}
+
 export function ProfileSetup({
   initialProfile,
   authEmail,
@@ -54,8 +61,12 @@ export function ProfileSetup({
   const [homeCohort, setHomeCohort] = useState<CohortName>(
     initialProfile?.homeCohort ?? "Blue",
   );
+  const initialGradYear =
+    initialProfile?.graduationYear ??
+    (initialProfile?.classYear === "Y2" ? 2027 : 2028);
+  const [graduationYear, setGraduationYear] = useState<number>(initialGradYear);
   const [classYear, setClassYear] = useState<"Y1" | "Y2">(
-    initialProfile?.classYear ?? "Y1",
+    initialProfile?.classYear ?? classYearFromGraduationYear(initialGradYear),
   );
   const [degreeTrack, setDegreeTrack] = useState<DegreeTrack>(
     initialProfile?.degreeTrack ?? "FTMBA",
@@ -84,6 +95,12 @@ export function ProfileSetup({
   const handleCohortChange = (nextCohort: CohortName) => {
     setHomeCohort(nextCohort);
     setCurrentSections(getDefaultSectionsForCohort(nextCohort));
+  };
+
+  const handleGradYearChange = (year: number) => {
+    setGraduationYear(year);
+    const derived = classYearFromGraduationYear(year);
+    setClassYear(derived);
   };
 
   const toggleWaived = (course: CourseName) => {
@@ -125,6 +142,7 @@ export function ProfileSetup({
         currentSections,
         confirmedYear: programConfig?.academicYear ?? "2026-2027",
         classYear,
+        graduationYear,
         isAdmin: initialProfile?.isAdmin,
         createdAt: initialProfile?.createdAt ?? new Date().toISOString(),
         degreeTrack,
@@ -200,20 +218,34 @@ export function ProfileSetup({
 
           <div>
             <label
-              htmlFor="profile-class-year"
+              htmlFor="profile-grad-year"
               className="mb-1.5 block text-xs font-semibold text-[#1D1D1F]"
             >
-              Class Year
+              Graduation Year
             </label>
             <select
-              id="profile-class-year"
-              value={classYear}
-              onChange={(e) => setClassYear(e.target.value as "Y1" | "Y2")}
+              id="profile-grad-year"
+              value={graduationYear}
+              onChange={(e) => handleGradYearChange(Number(e.target.value))}
               className="w-full rounded-[6px] border border-[#D1D1D6] bg-white px-3 py-2 text-sm text-[#1D1D1F] outline-none focus:border-[#003262]"
             >
-              <option value="Y1">Year 1 (Y1 · Core &amp; Swaps)</option>
-              <option value="Y2">Year 2 (Y2 · Electives Only)</option>
+              <option value={2028}>Class of 2028 (1Y · First-Year)</option>
+              <option value={2027}>Class of 2027 (2Y · Second-Year)</option>
+              <option value={2029}>Class of 2029 (1Y · Dual-Degree / Extended)</option>
+              <option value={2026}>Class of 2026 (2Y · Completed Core)</option>
             </select>
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#48484A]">
+              <span className="font-medium text-[#1D1D1F]">Standing:</span>
+              <span
+                className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                  classYear === "Y1"
+                    ? "bg-[#003262]/10 text-[#003262]"
+                    : "bg-[#065F46]/10 text-[#065F46]"
+                }`}
+              >
+                {classYear === "Y1" ? "1Y · First-Year" : "2Y · Second-Year"}
+              </span>
+            </div>
           </div>
 
           <div>
@@ -239,9 +271,13 @@ export function ProfileSetup({
           </div>
         </div>
 
-        {classYear === "Y2" && (
+        {classYear === "Y2" ? (
           <div className="rounded-[8px] border border-[#D1E0F0] bg-[#F0F5FA] p-3 text-xs text-[#003262]">
-            <strong>Year 2 Student:</strong> Core courses are completed. Cohort and core swaps are hidden from your planner so you can focus on electives and degree completion.
+            <strong>Class of {graduationYear} (2Y):</strong> All 20 Core curriculum units are marked completed. Cohort and core swaps are hidden from your planner so you can focus on electives and degree completion.
+          </div>
+        ) : (
+          <div className="rounded-[8px] border border-[#B8CBE0] bg-[#F0F5FA] p-3 text-xs text-[#003262]">
+            <strong>Class of {graduationYear} (1Y):</strong> First-Year student taking Fall &amp; Spring Core curriculum. Core section swaps, blind FIFO queue, and cohort matching are active.
           </div>
         )}
 

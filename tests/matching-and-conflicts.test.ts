@@ -16,6 +16,7 @@ import {
   formatRoomName,
   resolveBlockLocation,
 } from "../src/components/HalfHourGrid";
+import { classYearFromGraduationYear } from "../src/components/ProfileSetup";
 import {
   applyCatalogUpdates,
   getDefaultSectionsForCohort,
@@ -54,6 +55,9 @@ function makeProfile(overrides: Partial<StudentProfile>): StudentProfile {
     studentId: overrides.studentId ?? "3031234567",
     homeCohort: cohort,
     classYear: overrides.classYear ?? "Y1",
+    graduationYear:
+      overrides.graduationYear ??
+      (overrides.classYear === "Y2" ? 2027 : 2028),
     waivedCourses: overrides.waivedCourses ?? [],
     blockedSlots: overrides.blockedSlots ?? [],
     currentSections:
@@ -1087,5 +1091,31 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
       macroSec,
     );
     expect(coreRoom).toBe("N470");
+  });
+
+  it("determines 1Y vs 2Y standing based on selected graduation year", () => {
+    // 2028 graduation -> 1Y (First-Year)
+    expect(classYearFromGraduationYear(2028)).toBe("Y1");
+    // 2027 graduation -> 2Y (Second-Year)
+    expect(classYearFromGraduationYear(2027)).toBe("Y2");
+    // 2029 (dual-degree extended) -> 1Y
+    expect(classYearFromGraduationYear(2029)).toBe("Y1");
+    // 2026 (prior completed) -> 2Y
+    expect(classYearFromGraduationYear(2026)).toBe("Y2");
+
+    // Profile hydration / derivation
+    const grad2028 = makeProfile({
+      graduationYear: 2028,
+      classYear: classYearFromGraduationYear(2028),
+    });
+    expect(grad2028.classYear).toBe("Y1");
+    expect(grad2028.graduationYear).toBe(2028);
+
+    const grad2027 = makeProfile({
+      graduationYear: 2027,
+      classYear: classYearFromGraduationYear(2027),
+    });
+    expect(grad2027.classYear).toBe("Y2");
+    expect(grad2027.graduationYear).toBe(2027);
   });
 });

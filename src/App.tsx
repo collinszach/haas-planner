@@ -299,7 +299,12 @@ export function App() {
   const handleSwitchClassYear = async (nextYear: "Y1" | "Y2") => {
     if (!profile || (profile.classYear ?? "Y1") === nextYear) return;
     const runMode = mode === "live" ? "live" : "sandbox";
-    const updated: StudentProfile = { ...profile, classYear: nextYear };
+    const nextGradYear = nextYear === "Y2" ? 2027 : 2028;
+    const updated: StudentProfile = {
+      ...profile,
+      classYear: nextYear,
+      graduationYear: nextGradYear,
+    };
     setProfile(updated);
     if (nextYear === "Y2" && (activeSemester === "Y1_Fall" || activeSemester === "Y1_Spring")) {
       setActiveSemester("Y2_Spring");
@@ -309,8 +314,8 @@ export function App() {
     await saveStudentProfile(runMode, updated);
     showToast(
       nextYear === "Y2"
-        ? "Switched to Year 2 (Electives Only · Core Swaps hidden)."
-        : "Switched to Year 1 (Core Curriculum & Swaps enabled).",
+        ? "Switched to 2Y · Class of 2027 (Electives Only · Core Swaps hidden)."
+        : "Switched to 1Y · Class of 2028 (Core Curriculum & Swaps enabled).",
     );
   };
 
@@ -672,7 +677,7 @@ export function App() {
                             : "text-[#48484A] hover:text-[#1D1D1F]"
                         }`}
                       >
-                        Y1
+                        1Y ('28)
                       </button>
                       <button
                         type="button"
@@ -683,7 +688,7 @@ export function App() {
                             : "text-[#48484A] hover:text-[#1D1D1F]"
                         }`}
                       >
-                        Y2
+                        2Y ('27)
                       </button>
                     </div>
                     {!isY2 && (

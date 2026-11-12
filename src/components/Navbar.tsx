@@ -199,7 +199,7 @@ export function Navbar({
               )}
               <span className="max-w-[135px] truncate">{currentProfile.fullName}</span>
               <span className="hidden text-[#6E6E73] md:inline">
-                · {isY2 ? "Y2" : currentProfile.homeCohort}
+                · {isY2 ? "2Y ('27)" : `${currentProfile.homeCohort} ('28)`}
               </span>
             </button>
           )}

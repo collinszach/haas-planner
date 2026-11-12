@@ -79,6 +79,7 @@ export interface StudentProfile {
   currentSections: Record<CourseName, string>;
   confirmedYear?: string | null;
   classYear?: "Y1" | "Y2";
+  graduationYear?: number;
   isAdmin?: boolean;
   createdAt?: string;
   degreeTrack?: DegreeTrack;
