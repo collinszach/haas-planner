@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CourseCatalogManagerModal } from "@/components/CourseCatalogManagerModal";
 import {
   berkeleyClassToCatalogCourse,
   catalogCourseToPlannedRecord,
   OLR_SPRING_2027_RULES,
 } from "@/data/catalog";
-import { searchBerkeleyCourses } from "@/lib/berkeleyApi";
+import { getCuratedCampusCourses, searchBerkeleyCourses } from "@/lib/berkeleyApi";
 import {
   evaluateCourseFit,
   recommendCoursesForSemester,
@@ -32,9 +32,7 @@ import type {
 import {
   ArrowRightLeft,
   BookmarkCheck,
-  Building2,
   Check,
-  ChevronDown,
   Download,
   ExternalLink,
   FileSpreadsheet,
@@ -52,10 +50,7 @@ interface CourseRecommenderProps {
   onRemoveCourse: (instanceId: string) => Promise<void>;
 }
 
-import {
-  ALL_BERKELEY_DEPARTMENTS,
-  POPULAR_GRAD_DEPTS,
-} from "@/data/berkeleyDepartments";
+import { POPULAR_GRAD_DEPTS } from "@/data/berkeleyDepartments";
 export { POPULAR_GRAD_DEPTS };
 
 type FitView = "fits" | "swap_unlocks" | "planned" | "all";
@@ -70,34 +65,18 @@ export function CourseRecommender({
   onAddCourse,
   onRemoveCourse,
 }: CourseRecommenderProps) {
-  // Department filter: Defaults strictly to MBA courses only
-  const [selectedDepts, setSelectedDepts] = useState<string[]>(["MBA"]);
-  const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
-  const [campusCoursesByDept, setCampusCoursesByDept] = useState<
-    Record<string, BerkeleyClassResult[]>
-  >({});
-  const [loadingDepts, setLoadingDepts] = useState<Set<string>>(new Set());
+  // Course Origin Scope: All Classes | Haas MBA | Non-Haas
+  type ScopeFilter = "all" | "mba" | "non_mba";
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
 
-  // Strictly alphabetized department list of all UC Berkeley departments (A–Z)
-  const allDeptsList = ALL_BERKELEY_DEPARTMENTS;
+  const activeSeason: "Fall" | "Spring" =
+    semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
 
-  const deptDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        deptDropdownRef.current &&
-        !deptDropdownRef.current.contains(event.target as Node)
-      ) {
-        setDeptDropdownOpen(false);
-      }
-    }
-    if (deptDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [deptDropdownOpen]);
+  // Preload all campus graduate electives (ENGIN, MECENG, DATA, INFO, COMPSCI, etc.)
+  const [campusCourses, setCampusCourses] = useState<BerkeleyClassResult[]>(() =>
+    getCuratedCampusCourses(activeSeason),
+  );
+  const [isLoadingCampus, setIsLoadingCampus] = useState(false);
 
   // Simplified views & filters
   const [fitView, setFitView] = useState<FitView>("fits");
@@ -114,6 +93,71 @@ export function CourseRecommender({
     window.addEventListener("haas_catalog_updated", handler);
     return () => window.removeEventListener("haas_catalog_updated", handler);
   }, []);
+
+  // Automatically bring in all semester graduate electives across major campus departments (ENGIN, MECENG, etc.)
+  useEffect(() => {
+    const btSeason: "Fall" | "Spring" =
+      semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
+    const btYear = semesterId === "Y1_Fall" ? 2026 : 2027;
+
+    // Immediately seed with curated campus courses for instant zero-latency display
+    const curated = getCuratedCampusCourses(btSeason);
+    setCampusCourses((prev) => {
+      const map = new Map<string, BerkeleyClassResult>();
+      for (const c of curated) map.set(c.id, c);
+      for (const c of prev) {
+        if (c.semester === btSeason && !map.has(c.id)) {
+          map.set(c.id, c);
+        }
+      }
+      return Array.from(map.values());
+    });
+
+    let isCancelled = false;
+    async function loadCampusElectives() {
+      setIsLoadingCampus(true);
+      try {
+        const liveDepts = ["ENGIN", "MECENG", "COMPSCI", "DATA", "INFO"];
+        const fetchPromises = liveDepts.map((dept) =>
+          searchBerkeleyCourses({
+            query: dept,
+            semester: btSeason,
+            year: btYear,
+          }),
+        );
+        const settled = await Promise.allSettled(fetchPromises);
+        if (isCancelled) return;
+
+        const liveResults: BerkeleyClassResult[] = [];
+        for (const res of settled) {
+          if (res.status === "fulfilled" && Array.isArray(res.value?.results)) {
+            const gradOnly = res.value.results.filter((cls) =>
+              isGraduateCourse(cls.courseNumber),
+            );
+            liveResults.push(...gradOnly);
+          }
+        }
+
+        if (!isCancelled && liveResults.length > 0) {
+          setCampusCourses((current) => {
+            const map = new Map<string, BerkeleyClassResult>();
+            for (const c of current) map.set(c.id, c);
+            for (const c of liveResults) map.set(c.id, c);
+            return Array.from(map.values());
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load campus electives in background:", err);
+      } finally {
+        if (!isCancelled) setIsLoadingCampus(false);
+      }
+    }
+
+    void loadCampusElectives();
+    return () => {
+      isCancelled = true;
+    };
+  }, [semesterId]);
 
   // Live on-demand campus course search when a user types a course query (e.g. "MECENG 292C", "292C", "INFO 290")
   const [searchCampusResults, setSearchCampusResults] = useState<BerkeleyClassResult[]>([]);
@@ -149,51 +193,6 @@ export function CourseRecommender({
 
     return () => clearTimeout(timer);
   }, [query, semesterId]);
-
-  // Fetch campus department courses for the active semester when a user adds a non-MBA dept
-  const fetchDeptCourses = async (deptCode: string) => {
-    if (deptCode === "MBA" || campusCoursesByDept[deptCode]) return;
-    const btSeason: "Fall" | "Spring" =
-      semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
-    const btYear = semesterId === "Y1_Fall" ? 2026 : 2027;
-
-    setLoadingDepts((prev) => new Set(prev).add(deptCode));
-    try {
-      const res = await searchBerkeleyCourses({
-        query: deptCode,
-        semester: btSeason,
-        year: btYear,
-      });
-      // Strictly enforce graduate-level courses (200+) for graduate MBA credits
-      const gradOnly = res.results.filter((cls) => isGraduateCourse(cls.courseNumber));
-      setCampusCoursesByDept((prev) => ({
-        ...prev,
-        [deptCode]: gradOnly,
-      }));
-    } catch (err) {
-      console.error(`Failed to load ${deptCode} graduate courses:`, err);
-    } finally {
-      setLoadingDepts((prev) => {
-        const next = new Set(prev);
-        next.delete(deptCode);
-        return next;
-      });
-    }
-  };
-
-  const handleToggleDept = (code: string) => {
-    setSelectedDepts((prev) => {
-      if (prev.includes(code)) {
-        if (prev.length === 1) return prev; // Keep at least one
-        return prev.filter((d) => d !== code);
-      }
-      const next = [...prev, code];
-      if (code !== "MBA") {
-        void fetchDeptCourses(code);
-      }
-      return next;
-    });
-  };
 
   const plannedByCourseId = useMemo(() => {
     const map = new Map<string, PlannedCourseRecord>();
@@ -232,7 +231,6 @@ export function CourseRecommender({
 
   // 1. Haas recommendations
   const haasRecommendations = useMemo(() => {
-    if (!selectedDepts.includes("MBA")) return [];
     return recommendCoursesForSemester({
       semesterId,
       profile,
@@ -240,18 +238,11 @@ export function CourseRecommender({
       activeSections: sections.length > 0 ? sections : undefined,
       excludeAlreadyPlanned: false,
     });
-  }, [semesterId, profile, marketPulse, sections, catalogVersion, selectedDepts]);
+  }, [semesterId, profile, marketPulse, sections, catalogVersion]);
 
-  // 2. Non-MBA Campus recommendations for any selected graduate departments + live search results
+  // 2. Non-MBA Campus recommendations (ENGIN, MECENG, DATA, INFO, COMPSCI, etc.) + live search results
   const campusRecommendations = useMemo(() => {
-    const nonMbaDepts = selectedDepts.filter((d) => d !== "MBA");
-    const deptClasses: BerkeleyClassResult[] = [];
-    for (const dept of nonMbaDepts) {
-      deptClasses.push(...(campusCoursesByDept[dept] ?? []));
-    }
-
-    // Combine with live on-demand search results
-    const combinedClasses = [...deptClasses, ...searchCampusResults];
+    const combinedClasses = [...campusCourses, ...searchCampusResults];
     const seenIds = new Set<string>();
     const recs: CourseRecommendation[] = [];
 
@@ -270,12 +261,31 @@ export function CourseRecommender({
       recs.push(rec);
     }
     return recs;
-  }, [selectedDepts, campusCoursesByDept, searchCampusResults, semesterId, profile, marketPulse, sections]);
+  }, [campusCourses, searchCampusResults, semesterId, profile, marketPulse, sections]);
 
-  // Combined unified catalog
+  // Combined unified catalog: brings in all classes for that semester
   const allRecommendations = useMemo(() => {
     return [...haasRecommendations, ...campusRecommendations];
   }, [haasRecommendations, campusRecommendations]);
+
+  const haasCount = useMemo(
+    () => allRecommendations.filter((r) => r.course.dataSource === "haas").length,
+    [allRecommendations],
+  );
+  const nonMbaCount = useMemo(
+    () => allRecommendations.filter((r) => r.course.dataSource !== "haas").length,
+    [allRecommendations],
+  );
+
+  const scopedRecommendations = useMemo(() => {
+    if (scopeFilter === "mba") {
+      return allRecommendations.filter((r) => r.course.dataSource === "haas");
+    }
+    if (scopeFilter === "non_mba") {
+      return allRecommendations.filter((r) => r.course.dataSource !== "haas");
+    }
+    return allRecommendations;
+  }, [allRecommendations, scopeFilter]);
 
   const isY2 = profile.classYear === "Y2" || semesterId.startsWith("Y2_");
   const effectiveFitView: FitView =
@@ -285,7 +295,7 @@ export function CourseRecommender({
     let fits = 0;
     let swap = 0;
     let openSeats = 0;
-    for (const r of allRecommendations) {
+    for (const r of scopedRecommendations) {
       if (r.fitStatus === "fits") fits += 1;
       else if (r.fitStatus === "swap_unlocks") swap += 1;
       if ((r.course.olrAvailable ?? 0) > 0) openSeats += 1;
@@ -296,9 +306,9 @@ export function CourseRecommender({
       openSeats,
       planned: plannedSemesterEntries.length,
       plannedAll: plannedAllEntries.length,
-      total: allRecommendations.length,
+      total: scopedRecommendations.length,
     };
-  }, [allRecommendations, plannedSemesterEntries.length, plannedAllEntries.length]);
+  }, [scopedRecommendations, plannedSemesterEntries.length, plannedAllEntries.length]);
 
   const springBudget = useMemo(() => {
     const springSummary = audit.bySemester.find((s) => s.semesterId === "Y1_Spring");
@@ -320,8 +330,7 @@ export function CourseRecommender({
   const hasActiveFilters =
     query.trim().length > 0 ||
     categoryFilter !== "ALL" ||
-    selectedDepts.length > 1 ||
-    !selectedDepts.includes("MBA") ||
+    scopeFilter !== "all" ||
     fitView === "planned";
 
   const resetFilters = () => {
@@ -329,7 +338,7 @@ export function CourseRecommender({
     setCategoryFilter("ALL");
     setFitView("fits");
     setPlannedScope("semester");
-    setSelectedDepts(["MBA"]);
+    setScopeFilter("all");
   };
 
   const filtered = useMemo(() => {
@@ -412,10 +421,15 @@ export function CourseRecommender({
         };
       });
     } else {
-      baseList = allRecommendations;
+      baseList = scopedRecommendations;
     }
 
     const list = baseList.filter((rec) => {
+      // Scope filter for planned courses
+      if (effectiveFitView === "planned") {
+        if (scopeFilter === "mba" && rec.course.dataSource !== "haas") return false;
+        if (scopeFilter === "non_mba" && rec.course.dataSource === "haas") return false;
+      }
       // If no search query is typed, respect the strict tab view
       if (!q && effectiveFitView === "fits" && rec.fitStatus !== "fits") return false;
       if (!q && effectiveFitView === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
@@ -495,8 +509,6 @@ export function CourseRecommender({
     }
   };
 
-  const isOnlyMba = selectedDepts.length === 1 && selectedDepts[0] === "MBA";
-
   return (
     <section className="flex flex-col bg-white">
       <div className="border-b border-[#E5E5EA] px-4 py-3 sm:px-5">
@@ -545,9 +557,9 @@ export function CourseRecommender({
 
         {/* Unified Search & Filters Bar */}
         <div className="mt-2.5 space-y-2">
-          {/* Top Row: Search Input + Dept Dropdown + Requirement + Sort */}
+          {/* Top Row: Search Input + MBA/Non-MBA Scope + Requirement + Sort */}
           <div className="flex flex-wrap gap-1.5">
-            <div className="relative flex-1 min-w-[160px]">
+            <div className="relative flex-1 min-w-[150px]">
               {isSearchingLive ? (
                 <div className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#003262] border-t-transparent" />
               ) : (
@@ -558,82 +570,49 @@ export function CourseRecommender({
                 aria-label="Search courses"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search code (e.g. MECENG 292C), title, prof..."
+                placeholder="Search code (e.g. ENGIN 270D), title, prof..."
                 className="h-8 w-full rounded-[6px] border border-[#D1D1D6] bg-white pl-8 pr-2.5 text-xs text-[#1D1D1F] placeholder:text-[#6E6E73] outline-none focus:border-[#003262]"
               />
             </div>
 
-            {/* Department Multi-Select Dropdown */}
-            <div ref={deptDropdownRef} className="relative">
+            {/* MBA / Non-MBA Scope Segmented Control */}
+            <div className="inline-flex rounded-[6px] border border-[#D1D1D6] bg-[#F5F5F7] p-0.5 text-xs font-medium shrink-0">
               <button
                 type="button"
-                onClick={() => setDeptDropdownOpen((prev) => !prev)}
-                aria-expanded={deptDropdownOpen}
-                aria-haspopup="true"
-                className="inline-flex h-8 items-center justify-between gap-1 rounded-[6px] border border-[#D1D1D6] bg-white px-2 text-xs font-medium text-[#1D1D1F] hover:bg-[#F5F5F7]"
+                onClick={() => setScopeFilter("all")}
+                className={`rounded-[4px] px-2.5 py-1 text-xs transition-colors ${
+                  scopeFilter === "all"
+                    ? "bg-white text-[#003262] font-semibold shadow-xs"
+                    : "text-[#6E6E73] hover:text-[#1D1D1F]"
+                }`}
+                title="Show all courses for this semester (Haas MBA + Non-Haas)"
               >
-                <Building2 className="h-3.5 w-3.5 text-[#003262]" />
-                <span className="font-semibold text-[#1D1D1F]">
-                  {isOnlyMba
-                    ? "Depts: MBA Only"
-                    : selectedDepts.length <= 2
-                    ? `Depts: ${selectedDepts.join(", ")}`
-                    : `Depts: ${selectedDepts.length} Selected`}
-                </span>
-                <ChevronDown className="h-3 w-3 text-[#6E6E73]" />
+                All ({allRecommendations.length})
               </button>
-
-              {deptDropdownOpen && (
-                <div className="absolute right-0 sm:left-0 top-full z-40 mt-1 w-80 rounded-[8px] border border-[#D1D1D6] bg-white p-2 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-1.5 px-1 text-[11px] font-semibold text-[#6E6E73]">
-                    <span>All UC Berkeley Departments ({ALL_BERKELEY_DEPARTMENTS.length})</span>
-                    {!isOnlyMba && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDepts(["MBA"])}
-                        className="inline-flex items-center gap-1 text-[#003262] font-semibold hover:underline"
-                      >
-                        <RotateCcw className="h-2.5 w-2.5" />
-                        <span>Reset (MBA Only)</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Department Checkbox List: Alphabetical A to Z */}
-                  <div className="max-h-80 overflow-y-auto py-1 divide-y divide-[#F2F2F7]">
-                    {allDeptsList.map((dept) => {
-                      const checked = selectedDepts.includes(dept.code);
-                      const isLoading = loadingDepts.has(dept.code);
-                      return (
-                        <label
-                          key={dept.code}
-                          className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs cursor-pointer transition-colors ${
-                            checked
-                              ? "bg-[#003262]/5 font-semibold text-[#003262]"
-                              : "text-[#1D1D1F] hover:bg-[#F5F5F7]"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => handleToggleDept(dept.code)}
-                            className="rounded border-[#D1D1D6] text-[#003262] focus:ring-0"
-                          />
-                          <span className="w-16 shrink-0 font-semibold tracking-tight">{dept.code}</span>
-                          <span className="text-[11px] text-[#6E6E73] truncate flex-1">
-                            {dept.name}
-                          </span>
-                          {isLoading && (
-                            <span className="text-[10px] text-[#003262] font-normal animate-pulse">
-                              Loading...
-                            </span>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setScopeFilter("mba")}
+                className={`rounded-[4px] px-2.5 py-1 text-xs transition-colors ${
+                  scopeFilter === "mba"
+                    ? "bg-white text-[#003262] font-semibold shadow-xs"
+                    : "text-[#6E6E73] hover:text-[#1D1D1F]"
+                }`}
+                title="Show only Haas MBA courses"
+              >
+                Haas MBA ({haasCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setScopeFilter("non_mba")}
+                className={`rounded-[4px] px-2.5 py-1 text-xs transition-colors ${
+                  scopeFilter === "non_mba"
+                    ? "bg-white text-[#003262] font-semibold shadow-xs"
+                    : "text-[#6E6E73] hover:text-[#1D1D1F]"
+                }`}
+                title="Show only Non-Haas campus graduate courses"
+              >
+                Non-MBA ({nonMbaCount})
+              </button>
             </div>
 
             {/* Requirement Filter Dropdown */}
@@ -750,14 +729,23 @@ export function CourseRecommender({
                   </a>
                 </>
               )}
+              {isLoadingCampus && (
+                <>
+                  <span>·</span>
+                  <span className="text-[10.5px] text-[#003262] font-medium animate-pulse">
+                    Syncing campus...
+                  </span>
+                </>
+              )}
               {hasActiveFilters && (
                 <>
                   <span>·</span>
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="font-medium text-[#003262] hover:underline"
+                    className="inline-flex items-center gap-0.5 font-medium text-[#003262] hover:underline"
                   >
+                    <RotateCcw className="h-2.5 w-2.5" />
                     Reset
                   </button>
                 </>
@@ -870,7 +858,7 @@ export function CourseRecommender({
             )}
           </div>
         ) : (
-          filtered.slice(0, 80).map((rec) => {
+          filtered.map((rec) => {
             const { course } = rec;
             const isAdded =
               plannedByCourseId.has(course.id) ||

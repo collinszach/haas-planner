@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { computeCourseDemandFromProfiles } from "@/lib/api";
-import { searchBerkeleyCourses } from "@/lib/berkeleyApi";
+import {
+  getCuratedCampusCourses,
+  searchBerkeleyCourses,
+} from "@/lib/berkeleyApi";
 import {
   berkeleyClassToCatalogCourse,
   catalogCourseToPlannedRecord,
@@ -1532,5 +1535,55 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     // MECENG 292C-001 meets 8:00 AM - 9:30 AM on Tue/Thu, which directly collides with Tue 9:00 AM - 11:00 AM
     expect(fit.fitStatus).toBe("conflict");
     expect(fit.conflictReasons.some((r) => r.toLowerCase().includes("entrepreneurship") || r.toLowerCase().includes("mba295a"))).toBe(true);
+  });
+
+  it("loads ENGIN graduate courses automatically and partitions MBA vs Non-MBA without department dropdown", async () => {
+    // 1. Verify ENGIN graduate courses are curated and present for both Spring 2027 and Fall 2026
+    const springCampus = getCuratedCampusCourses("Spring");
+    const enginSpring = springCampus.filter((c) => c.subject === "ENGIN");
+    expect(enginSpring.length).toBeGreaterThanOrEqual(4);
+
+    const engin270D = enginSpring.find((c) => c.courseNumber === "270D");
+    expect(engin270D).toBeDefined();
+    expect(engin270D?.title).toContain("Entrepreneurship for Engineers");
+    expect(engin270D?.units).toBe(3);
+    expect(isGraduateCourse(engin270D!.courseNumber)).toBe(true);
+
+    const engin270G = enginSpring.find((c) => c.courseNumber === "270G");
+    expect(engin270G).toBeDefined();
+    expect(engin270G?.title).toContain("Marketing and Product Management");
+    expect(engin270G?.units).toBe(3);
+
+    const engin201 = enginSpring.find((c) => c.courseNumber === "201");
+    expect(engin201).toBeDefined();
+    expect(engin201?.title).toContain("Engineering Leadership");
+
+    // 2. Querying ENGIN through searchBerkeleyCourses returns graduate results
+    const res = await searchBerkeleyCourses({
+      query: "ENGIN",
+      semester: "Spring",
+      year: 2027,
+    });
+    expect(res.results.length).toBeGreaterThanOrEqual(4);
+    expect(res.results.some((c) => c.courseNumber === "270D")).toBe(true);
+
+    // 3. Converting to CatalogCourse sets dataSource to "berkeley"
+    const catEngin = berkeleyClassToCatalogCourse(engin270D!, "Y1_Spring");
+    expect(catEngin.dataSource).toBe("berkeley");
+    expect(catEngin.code).toBe("ENGIN 270D");
+
+    // 4. Verify MBA / Non-MBA scope separation
+    const haasCourse = SPRING_2027_COURSES[0];
+    expect(haasCourse.dataSource).toBe("haas");
+
+    const allCourses = [haasCourse, catEngin];
+    const mbaOnly = allCourses.filter((c) => c.dataSource === "haas");
+    const nonMbaOnly = allCourses.filter((c) => c.dataSource !== "haas");
+
+    expect(mbaOnly).toHaveLength(1);
+    expect(mbaOnly[0].code).toBe(haasCourse.code);
+
+    expect(nonMbaOnly).toHaveLength(1);
+    expect(nonMbaOnly[0].code).toBe("ENGIN 270D");
   });
 });
