@@ -76,7 +76,8 @@ export function isGraduateCourse(rawCodeOrNumber?: string | null): boolean {
   const match = trimmed.match(/(?:^|\s|[A-Za-z]+(?:\s*))([A-Za-z]?)(\d{1,4})(?:[A-Za-z0-9.]*)/);
   if (!match) return false;
   const num = parseInt(match[2], 10);
-  return !Number.isNaN(num) && num >= 200;
+  // Berkeley academic courses: 200-299 are graduate courses. 300+ are pedagogy/intern courses (e.g. 365).
+  return !Number.isNaN(num) && num >= 200 && num < 300;
 }
 
 /**

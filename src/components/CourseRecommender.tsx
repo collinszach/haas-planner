@@ -65,18 +65,17 @@ export function CourseRecommender({
   onAddCourse,
   onRemoveCourse,
 }: CourseRecommenderProps) {
-  // Course Origin Scope: All Classes | Haas MBA | Non-Haas
+  // Course Origin Scope: Defaults strictly to Haas MBA
   type ScopeFilter = "all" | "mba" | "non_mba";
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("mba");
 
   const activeSeason: "Fall" | "Spring" =
     semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
 
-  // Preload all campus graduate electives (ENGIN, MECENG, DATA, INFO, COMPSCI, etc.)
+  // Preload curated campus graduate electives (ENGIN 270D/270G/201/203, MECENG 292C, DATA C200, etc.)
   const [campusCourses, setCampusCourses] = useState<BerkeleyClassResult[]>(() =>
     getCuratedCampusCourses(activeSeason),
   );
-  const [isLoadingCampus, setIsLoadingCampus] = useState(false);
 
   // Simplified views & filters
   const [fitView, setFitView] = useState<FitView>("fits");
@@ -94,69 +93,11 @@ export function CourseRecommender({
     return () => window.removeEventListener("haas_catalog_updated", handler);
   }, []);
 
-  // Automatically bring in all semester graduate electives across major campus departments (ENGIN, MECENG, etc.)
+  // Sync curated campus electives on semester switch
   useEffect(() => {
     const btSeason: "Fall" | "Spring" =
       semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
-    const btYear = semesterId === "Y1_Fall" ? 2026 : 2027;
-
-    // Immediately seed with curated campus courses for instant zero-latency display
-    const curated = getCuratedCampusCourses(btSeason);
-    setCampusCourses((prev) => {
-      const map = new Map<string, BerkeleyClassResult>();
-      for (const c of curated) map.set(c.id, c);
-      for (const c of prev) {
-        if (c.semester === btSeason && !map.has(c.id)) {
-          map.set(c.id, c);
-        }
-      }
-      return Array.from(map.values());
-    });
-
-    let isCancelled = false;
-    async function loadCampusElectives() {
-      setIsLoadingCampus(true);
-      try {
-        const liveDepts = ["ENGIN", "MECENG", "COMPSCI", "DATA", "INFO"];
-        const fetchPromises = liveDepts.map((dept) =>
-          searchBerkeleyCourses({
-            query: dept,
-            semester: btSeason,
-            year: btYear,
-          }),
-        );
-        const settled = await Promise.allSettled(fetchPromises);
-        if (isCancelled) return;
-
-        const liveResults: BerkeleyClassResult[] = [];
-        for (const res of settled) {
-          if (res.status === "fulfilled" && Array.isArray(res.value?.results)) {
-            const gradOnly = res.value.results.filter((cls) =>
-              isGraduateCourse(cls.courseNumber),
-            );
-            liveResults.push(...gradOnly);
-          }
-        }
-
-        if (!isCancelled && liveResults.length > 0) {
-          setCampusCourses((current) => {
-            const map = new Map<string, BerkeleyClassResult>();
-            for (const c of current) map.set(c.id, c);
-            for (const c of liveResults) map.set(c.id, c);
-            return Array.from(map.values());
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load campus electives in background:", err);
-      } finally {
-        if (!isCancelled) setIsLoadingCampus(false);
-      }
-    }
-
-    void loadCampusElectives();
-    return () => {
-      isCancelled = true;
-    };
+    setCampusCourses(getCuratedCampusCourses(btSeason));
   }, [semesterId]);
 
   // Live on-demand campus course search when a user types a course query (e.g. "MECENG 292C", "292C", "INFO 290")
@@ -330,7 +271,7 @@ export function CourseRecommender({
   const hasActiveFilters =
     query.trim().length > 0 ||
     categoryFilter !== "ALL" ||
-    scopeFilter !== "all" ||
+    scopeFilter !== "mba" ||
     fitView === "planned";
 
   const resetFilters = () => {
@@ -338,7 +279,7 @@ export function CourseRecommender({
     setCategoryFilter("ALL");
     setFitView("fits");
     setPlannedScope("semester");
-    setScopeFilter("all");
+    setScopeFilter("mba");
   };
 
   const filtered = useMemo(() => {
@@ -425,11 +366,10 @@ export function CourseRecommender({
     }
 
     const list = baseList.filter((rec) => {
-      // Scope filter for planned courses
-      if (effectiveFitView === "planned") {
-        if (scopeFilter === "mba" && rec.course.dataSource !== "haas") return false;
-        if (scopeFilter === "non_mba" && rec.course.dataSource === "haas") return false;
-      }
+      // Strictly enforce scopeFilter across ALL views (planned and catalog views)
+      if (scopeFilter === "mba" && rec.course.dataSource !== "haas") return false;
+      if (scopeFilter === "non_mba" && rec.course.dataSource === "haas") return false;
+
       // If no search query is typed, respect the strict tab view
       if (!q && effectiveFitView === "fits" && rec.fitStatus !== "fits") return false;
       if (!q && effectiveFitView === "swap_unlocks" && rec.fitStatus !== "swap_unlocks") return false;
@@ -478,6 +418,8 @@ export function CourseRecommender({
       return b.score - a.score;
     });
   }, [
+    scopedRecommendations,
+    scopeFilter,
     allRecommendations,
     effectiveFitView,
     plannedScope,
@@ -727,14 +669,6 @@ export function CourseRecommender({
                     OLR
                     <ExternalLink className="h-3 w-3" />
                   </a>
-                </>
-              )}
-              {isLoadingCampus && (
-                <>
-                  <span>·</span>
-                  <span className="text-[10.5px] text-[#003262] font-medium animate-pulse">
-                    Syncing campus...
-                  </span>
                 </>
               )}
               {hasActiveFilters && (

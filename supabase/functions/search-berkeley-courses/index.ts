@@ -39,7 +39,7 @@ function isGraduateCourseNumber(courseNumber: string): boolean {
   const match = courseNumber.trim().match(/(?:^|\s|[A-Za-z]+(?:\s*))([A-Za-z]?)(\d{1,4})/);
   if (!match) return false;
   const num = parseInt(match[2], 10);
-  return !Number.isNaN(num) && num >= 200;
+  return !Number.isNaN(num) && num >= 200 && num < 300;
 }
 
 Deno.serve(async (req: Request) => {

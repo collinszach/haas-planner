@@ -1222,12 +1222,14 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(isGraduateCourse("ENGIN 270B")).toBe(true);
     expect(isGraduateCourse("LAW 276")).toBe(true);
 
-    // Undergraduate courses (<200)
+    // Undergraduate courses (<200) and Pedagogy / TA intern courses (>=300)
     expect(isGraduateCourse("COMPSCI 61A")).toBe(false);
     expect(isGraduateCourse("ECON 100A")).toBe(false);
     expect(isGraduateCourse("INFO 159")).toBe(false);
     expect(isGraduateCourse("UGBA 101A")).toBe(false);
     expect(isGraduateCourse("MATH 54")).toBe(false);
+    expect(isGraduateCourse("COMPSCI 365")).toBe(false);
+    expect(isGraduateCourse("ENGIN 375")).toBe(false);
     expect(isGraduateCourse("")).toBe(false);
     expect(isGraduateCourse(undefined)).toBe(false);
 
