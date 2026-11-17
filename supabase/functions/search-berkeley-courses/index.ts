@@ -57,8 +57,12 @@ Deno.serve(async (req: Request) => {
     };
 
     const search = (body.search ?? "").trim();
-    const year = body.year ?? 2026;
     const semester = body.semester ?? "Fall";
+    // Berkeleytime hosts 2026 Fall as the latest available Fall catalog (template for projected Fall semesters)
+    let year = body.year ?? (semester === "Fall" ? 2026 : 2027);
+    if (semester === "Fall" && year > 2026) {
+      year = 2026;
+    }
     const page = Math.max(1, body.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, body.pageSize ?? 50));
 

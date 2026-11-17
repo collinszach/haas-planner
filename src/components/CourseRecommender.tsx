@@ -76,6 +76,7 @@ export function CourseRecommender({
   const [campusCourses, setCampusCourses] = useState<BerkeleyClassResult[]>(() =>
     getCuratedCampusCourses(activeSeason),
   );
+  const [isLoadingCampus, setIsLoadingCampus] = useState(false);
 
   // Simplified views & filters
   const [fitView, setFitView] = useState<FitView>("fits");
@@ -93,11 +94,86 @@ export function CourseRecommender({
     return () => window.removeEventListener("haas_catalog_updated", handler);
   }, []);
 
-  // Sync curated campus electives on semester switch
+  // When switching semesters, default scope to Haas MBA and auto-load all semester graduate electives
   useEffect(() => {
-    const btSeason: "Fall" | "Spring" =
-      semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
-    setCampusCourses(getCuratedCampusCourses(btSeason));
+    setScopeFilter("mba");
+    setFitView("fits");
+
+    const btSeason: "Fall" | "Spring" = semesterId.includes("Fall") ? "Fall" : "Spring";
+    // For Fall semesters (including projected Fall 2027), 2026 is the template year in Berkeleytime.
+    // For Spring semesters (including projected Spring 2028), 2027 is the active/template year.
+    const btYear = btSeason === "Fall" ? 2026 : 2027;
+
+    // Immediately seed with curated campus courses for instant zero-latency display
+    const curated = getCuratedCampusCourses(btSeason);
+    setCampusCourses((prev) => {
+      const map = new Map<string, BerkeleyClassResult>();
+      for (const c of curated) map.set(c.id, c);
+      for (const c of prev) {
+        if (c.semester === btSeason && !map.has(c.id)) {
+          map.set(c.id, c);
+        }
+      }
+      return Array.from(map.values());
+    });
+
+    let isCancelled = false;
+    async function loadCampusElectives() {
+      setIsLoadingCampus(true);
+      try {
+        const liveDepts = [
+          "ENGIN",
+          "MECENG",
+          "COMPSCI",
+          "DATA",
+          "INFO",
+          "EECS",
+          "INDENG",
+          "CIVENG",
+          "PBHLTH",
+          "PUBPOL",
+          "DESINV",
+          "LAW",
+        ];
+        const fetchPromises = liveDepts.map((dept) =>
+          searchBerkeleyCourses({
+            query: dept,
+            semester: btSeason,
+            year: btYear,
+          }),
+        );
+        const settled = await Promise.allSettled(fetchPromises);
+        if (isCancelled) return;
+
+        const liveResults: BerkeleyClassResult[] = [];
+        for (const res of settled) {
+          if (res.status === "fulfilled" && Array.isArray(res.value?.results)) {
+            const gradOnly = res.value.results.filter((cls) =>
+              isGraduateCourse(cls.courseNumber),
+            );
+            liveResults.push(...gradOnly);
+          }
+        }
+
+        if (!isCancelled && liveResults.length > 0) {
+          setCampusCourses((current) => {
+            const map = new Map<string, BerkeleyClassResult>();
+            for (const c of current) map.set(c.id, c);
+            for (const c of liveResults) map.set(c.id, c);
+            return Array.from(map.values());
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load campus electives in background:", err);
+      } finally {
+        if (!isCancelled) setIsLoadingCampus(false);
+      }
+    }
+
+    void loadCampusElectives();
+    return () => {
+      isCancelled = true;
+    };
   }, [semesterId]);
 
   // Live on-demand campus course search when a user types a course query (e.g. "MECENG 292C", "292C", "INFO 290")
@@ -112,9 +188,8 @@ export function CourseRecommender({
     }
 
     const timer = setTimeout(async () => {
-      const btSeason: "Fall" | "Spring" =
-        semesterId === "Y1_Fall" || semesterId === "Y2_Fall" ? "Fall" : "Spring";
-      const btYear = semesterId === "Y1_Fall" ? 2026 : 2027;
+      const btSeason: "Fall" | "Spring" = semesterId.includes("Fall") ? "Fall" : "Spring";
+      const btYear = btSeason === "Fall" ? 2026 : 2027;
 
       setIsSearchingLive(true);
       try {
@@ -647,6 +722,14 @@ export function CourseRecommender({
 
             <div className="tabular-nums flex items-center gap-2 text-xs text-[#6E6E73]">
               <span>{filtered.length} shown</span>
+              {isLoadingCampus && (
+                <>
+                  <span>·</span>
+                  <span className="text-[10.5px] text-[#003262] font-medium animate-pulse">
+                    Syncing campus...
+                  </span>
+                </>
+              )}
               {semesterId === "Y1_Spring" && (
                 <>
                   <span>·</span>

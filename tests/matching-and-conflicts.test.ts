@@ -8,6 +8,7 @@ import {
   berkeleyClassToCatalogCourse,
   catalogCourseToPlannedRecord,
   FALL_2026_COURSES,
+  getCatalogForSemester,
   OLR_SPRING_2027_RULES,
   SPRING_2027_COURSES,
 } from "@/data/catalog";
@@ -1722,5 +1723,40 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
 
     expect(nonMbaOnly).toHaveLength(1);
     expect(nonMbaOnly[0].code).toBe("ENGIN 270D");
+  });
+
+  it("projects Fall 2027 catalog with complete Haas electives and Fall campus graduate courses", async () => {
+    // 1. Fall 2027 (Y2_Fall) Haas MBA catalog has 92 projected electives
+    const fallHaas = getCatalogForSemester("Y2_Fall");
+    expect(fallHaas.length).toBe(92);
+    expect(fallHaas.every((c) => c.dataSource === "haas")).toBe(true);
+    expect(fallHaas.every((c) => c.season === "Fall")).toBe(true);
+    expect(fallHaas.some((c) => c.code === "MBA290N.1")).toBe(true);
+
+    // 2. Curated Fall campus electives provide instant zero-latency loading
+    const fallCampus = getCuratedCampusCourses("Fall");
+    expect(fallCampus.length).toBeGreaterThanOrEqual(15);
+    expect(fallCampus.every((c) => isGraduateCourse(c.courseNumber))).toBe(true);
+
+    const fallMecEng = fallCampus.find((c) => c.subject === "MECENG" && c.courseNumber === "292C");
+    expect(fallMecEng).toBeDefined();
+    expect(fallMecEng?.title).toContain("Advanced Special Topics in Design");
+
+    const fallEngin = fallCampus.find((c) => c.subject === "ENGIN" && c.courseNumber === "270D");
+    expect(fallEngin).toBeDefined();
+
+    // 3. searchBerkeleyCourses with Fall and future year (e.g. 2027) normalizes to 2026 template year
+    const searchRes = await searchBerkeleyCourses({
+      query: "ENGIN",
+      semester: "Fall",
+      year: 2027,
+    });
+    expect(searchRes.results.length).toBeGreaterThanOrEqual(4);
+    expect(searchRes.results.some((c) => c.courseNumber === "270D")).toBe(true);
+
+    // 4. Converting campus course to CatalogCourse scopes correctly to Y2_Fall
+    const catMecEng = berkeleyClassToCatalogCourse(fallMecEng!, "Y2_Fall");
+    expect(catMecEng.dataSource).toBe("berkeley");
+    expect(catMecEng.season).toBe("Fall");
   });
 });
