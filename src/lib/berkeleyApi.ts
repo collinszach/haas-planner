@@ -362,6 +362,32 @@ const CURATED_BERKELEY_FALLBACK: BerkeleyClassResult[] = [
     sourceMode: "fallback",
   },
   {
+    id: "BT-2027Spring-ENGIN-270B-001",
+    year: 2027,
+    semester: "Spring",
+    subject: "ENGIN",
+    courseNumber: "270B",
+    sectionNumber: "001",
+    title: "R&D Technology Management and Ethics",
+    units: 1,
+    instructors: "Fung Institute Faculty",
+    averageGrade: 3.91,
+    enrolledCount: 45,
+    maxEnroll: 60,
+    dayLabel: "Mon",
+    timeLabel: "5:00 PM–6:30 PM",
+    meetings: [{ days: ["Mon"], startMin: 1020, endMin: 1110, part: "Full" }],
+    evaluation: {
+      courseWorth: 6.7,
+      instructorEffectiveness: 6.6,
+      difficulty: 1.9,
+      evalTerm: "Berkeleytime (scaled /7)",
+      comments: [],
+      source: "berkeleytime",
+    },
+    sourceMode: "fallback",
+  },
+  {
     id: "BT-2027Spring-ENGIN-270C-001",
     year: 2027,
     semester: "Spring",
@@ -831,7 +857,13 @@ export async function searchBerkeleyCourses(params: {
   semester?: "Fall" | "Spring";
   year?: number;
 }): Promise<{ results: BerkeleyClassResult[]; sourceMode: "live" | "fallback"; error?: string }> {
-  const q = params.query.trim();
+  const rawQ = params.query.trim();
+  // Normalize department aliases (e.g. engineer/engineering -> ENGIN, mech/mechanical -> MECENG)
+  const q = rawQ
+    .replace(/\bengineer(?:ing)?\b/gi, "ENGIN")
+    .replace(/\bmechanical\b/gi, "MECENG")
+    .replace(/\bcomputer science\b/gi, "COMPSCI");
+
   const semester = params.semester ?? "Spring";
   // Fall courses use 2026 as the reliable template year in Berkeleytime; Spring uses 2027
   const defaultYear = semester === "Fall" ? 2026 : 2027;
@@ -891,13 +923,16 @@ export async function searchBerkeleyCourses(params: {
   }
 
   const lower = q.toLowerCase();
+  const tokens = lower.replace(/[-_.]/g, " ").split(/\s+/).filter(Boolean);
   const filtered = CURATED_BERKELEY_FALLBACK.filter(
     (c) =>
       (!params.semester || c.semester === params.semester) &&
       isGraduateCourse(c.courseNumber) &&
-      `${c.subject} ${c.courseNumber} ${c.title} ${c.instructors}`
-        .toLowerCase()
-        .includes(lower),
+      tokens.every((t) => {
+        const hay = `${c.subject} ${c.courseNumber} ${c.title} ${c.instructors}`.toLowerCase();
+        const cleanHay = hay.replace(/[-_.]/g, " ");
+        return cleanHay.includes(t) || hay.includes(t);
+      }),
   );
   return {
     results: filtered,

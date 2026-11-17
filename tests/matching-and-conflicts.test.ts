@@ -1750,6 +1750,11 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(fallEngin270C?.title).toContain("Teaming and Project Management");
     expect(fallEngin270C?.units).toBe(1);
 
+    const fallEngin270B = fallCampus.find((c) => c.subject === "ENGIN" && c.courseNumber === "270B");
+    expect(fallEngin270B).toBeDefined();
+    expect(fallEngin270B?.title).toContain("R&D Technology Management and Ethics");
+    expect(fallEngin270B?.units).toBe(1);
+
     // 3. searchBerkeleyCourses with Fall and future year (e.g. 2027) normalizes to 2026 template year
     const searchRes = await searchBerkeleyCourses({
       query: "ENGIN",
@@ -1767,6 +1772,15 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(res270C.results.length).toBeGreaterThanOrEqual(1);
     expect(res270C.results.some((c) => c.courseNumber === "270C")).toBe(true);
 
+    // Alias search: "engineer 270B" maps to ENGIN 270B
+    const res270B = await searchBerkeleyCourses({
+      query: "engineer 270B",
+      semester: "Fall",
+      year: 2027,
+    });
+    expect(res270B.results.length).toBeGreaterThanOrEqual(1);
+    expect(res270B.results.some((c) => c.courseNumber === "270B")).toBe(true);
+
     // 4. Converting campus course to CatalogCourse scopes correctly to Y2_Fall
     const catMecEng = berkeleyClassToCatalogCourse(fallMecEng!, "Y2_Fall");
     expect(catMecEng.dataSource).toBe("berkeley");
@@ -1775,5 +1789,9 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     const catEngin270C = berkeleyClassToCatalogCourse(fallEngin270C!, "Y2_Fall");
     expect(catEngin270C.dataSource).toBe("berkeley");
     expect(catEngin270C.units).toBe(1);
+
+    const catEngin270B = berkeleyClassToCatalogCourse(fallEngin270B!, "Y2_Fall");
+    expect(catEngin270B.dataSource).toBe("berkeley");
+    expect(catEngin270B.code).toBe("ENGIN 270B");
   });
 });

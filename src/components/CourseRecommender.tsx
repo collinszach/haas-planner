@@ -460,11 +460,26 @@ export function CourseRecommender({
         return false;
       }
       if (q) {
-        const cleanQ = q.replace(/[-_.]/g, " ");
+        // Normalize query tokens (handle department aliases like engineer/engineering -> engin)
+        const normalizedQ = q
+          .toLowerCase()
+          .replace(/[-_.]/g, " ")
+          .replace(/\bengineer(?:ing)?\b/g, "engin")
+          .replace(/\bcomputer science\b/g, "compsci")
+          .replace(/\bdata science\b/g, "data")
+          .replace(/\binfo school\b/g, "info")
+          .replace(/\bmech(?:anical)?\b/g, "meceng");
+
+        const tokens = normalizedQ.split(/\s+/).filter(Boolean);
+        const codeWithSpace = rec.course.code.replace(/([a-zA-Z]+)(\d+)/g, "$1 $2");
         const hay =
-          `${rec.course.id} ${rec.course.code} ${rec.course.baseCode} ${rec.course.name} ${rec.course.instructors} ${rec.course.dayLabel} ${rec.course.timeLabel} ${rec.course.part} ${rec.course.primaryFunction ?? ""} ${rec.course.primaryIndustry ?? ""}`.toLowerCase();
+          `${rec.course.id} ${rec.course.code} ${codeWithSpace} ${rec.course.baseCode} ${rec.course.name} ${rec.course.instructors} ${rec.course.dayLabel} ${rec.course.timeLabel} ${rec.course.format} ${rec.course.part} ${rec.course.primaryFunction ?? ""} ${rec.course.primaryIndustry ?? ""}`.toLowerCase();
         const cleanHay = hay.replace(/[-_.]/g, " ");
-        if (!hay.includes(q) && !cleanHay.includes(cleanQ)) return false;
+
+        const allTokensMatch = tokens.every(
+          (token) => cleanHay.includes(token) || hay.includes(token),
+        );
+        if (!allTokensMatch) return false;
       }
       return true;
     });
