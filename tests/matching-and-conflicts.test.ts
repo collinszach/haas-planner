@@ -834,6 +834,141 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(diagAfter.legs.some((l) => l.course === "Ethics")).toBe(false);
   });
 
+  it("shifts schedule and resolves MECENG 208 collision when Macro swap with Tzu Wang is confirmed", () => {
+    // MECENG 208 meets Mon/Wed 2:00 PM-3:30 PM (Campus), colliding with Gold Macro-201B.2A (Mon/Wed 2:00-4:00 PM)
+    const meceng208: PlannedCourseRecord = {
+      instanceId: "Y1_Spring:BT-2027Spring-MECENG-208-001",
+      semesterId: "Y1_Spring",
+      courseId: "BT-2027Spring-MECENG-208-001",
+      code: "MECENG 208",
+      name: "Human-AI Design Methods",
+      units: 3,
+      instructors: "UC Berkeley Staff",
+      part: "Full",
+      meetings: [{ days: ["Mon", "Wed"], startMin: 840, endMin: 930, part: "Full" }],
+      timeLabel: "2:00 PM–3:30 PM",
+      dayLabel: "Mon/Wed",
+      format: "Spring 2027 (Campus)",
+      status: "planned",
+      isCore: false,
+      experiential: false,
+      businessTech: false,
+      certificates: [],
+      dataSource: "berkeley",
+      gradingBasis: "letter",
+    };
+
+    const zachary = makeProfile({
+      id: "6a4b21bd-18cf-4afa-bd53-a8401fcbb21c",
+      fullName: "Zachary James Collins",
+      email: "zachcollins@berkeley.edu",
+      homeCohort: "Gold",
+      currentSections: {
+        Ops: "Ops-204.2A",
+        Macro: "Macro-201B.2A", // Collides Mon/Wed 2:00 PM-4:00 PM with MECENG 208
+        Ethics: "Ethics-207.1B",
+        Strategy: "Strategy-209.2B",
+      },
+      plannedCourses: [meceng208],
+    });
+
+    const zoeyWang = makeProfile({
+      id: "9326d747-84f3-599c-94b9-148191b921fc",
+      fullName: "Zoey Wang",
+      email: "zwangch@berkeley.edu",
+      homeCohort: "Axe",
+      currentSections: {
+        Ops: "Ops-204.4A",
+        Macro: "Macro-201B.1A", // Morning Macro: Mon/Wed 9:00 AM-11:00 AM
+        Ethics: "Ethics-207.4B",
+        Strategy: "Strategy-209.4B",
+      },
+    });
+
+    // Before swap confirmation, Zachary's schedule has a direct conflict on Macro with MECENG 208
+    const diagBefore = autoGenerateSwapsFromPlan({ profile: zachary });
+    expect(diagBefore.legs.some((l) => l.course === "Macro")).toBe(true);
+
+    const reqZach: SwapRequest = {
+      id: "1d2d6b7c-f754-5724-a61e-bc7c386d36c4",
+      userId: zachary.id,
+      bundleId: null,
+      swapType: "single",
+      course: "Macro",
+      givingUpKey: "Macro-201B.2A", // gitleaks:allow
+      wantedKeys: ["Macro-201B.1A"], // gitleaks:allow
+      notes: "Collision with MECENG 208",
+      status: "submitted",
+      queuePriorityAt: "2026-11-12T00:00:00Z",
+      createdAt: "2026-11-12T00:00:00Z",
+      updatedAt: "2026-11-12T00:00:00Z",
+    };
+
+    const reqZoey: SwapRequest = {
+      id: "39ad56e6-c225-5f06-8066-180f89f6f1f1",
+      userId: zoeyWang.id,
+      bundleId: null,
+      swapType: "single",
+      course: "Macro",
+      givingUpKey: "Macro-201B.1A", // gitleaks:allow
+      wantedKeys: ["Macro-201B.2A"], // gitleaks:allow
+      notes: "Prefer afternoon section",
+      status: "submitted",
+      queuePriorityAt: "2026-11-12T00:00:00Z",
+      createdAt: "2026-11-12T00:00:00Z",
+      updatedAt: "2026-11-12T00:00:00Z",
+    };
+
+    const matchState: MatchEngineState = {
+      profiles: { [zachary.id]: zachary, [zoeyWang.id]: zoeyWang },
+      requests: [reqZach, reqZoey],
+      matches: [
+        {
+          id: "ce325dad-03fb-42ea-8d4d-13812826b2d9",
+          bundleMatchGroupId: null,
+          requestAId: reqZach.id,
+          requestBId: reqZoey.id,
+          userAId: zachary.id,
+          userBId: zoeyWang.id,
+          swapType: "single",
+          course: "Macro",
+          userAGivesKey: "Macro-201B.2A", // gitleaks:allow
+          userBGivesKey: "Macro-201B.1A", // gitleaks:allow
+          userARank: 1,
+          userBRank: 1,
+          status: "submitted",
+          confirmedByA: false,
+          confirmedByB: false,
+          submittedByUserId: zachary.id,
+          cancelledByUserId: null,
+          cancelReason: null,
+          emailSentA: true,
+          emailSentB: true,
+          createdAt: "2026-11-12T00:00:00Z",
+          submittedAt: "2026-11-12T00:00:00Z",
+        },
+      ],
+    };
+
+    const afterConfirm = confirmMatchInMemory(
+      matchState,
+      "ce325dad-03fb-42ea-8d4d-13812826b2d9",
+      zachary.id,
+    );
+
+    // Zachary shifts to Macro-201B.1A (Blue, Mon/Wed 9:00 AM-11:00 AM)
+    const updatedZachary = afterConfirm.profiles[zachary.id];
+    expect(updatedZachary?.currentSections.Macro).toBe("Macro-201B.1A"); // gitleaks:allow
+
+    // Zoey Wang shifts to Macro-201B.2A (Gold, Mon/Wed 2:00 PM-4:00 PM)
+    const updatedZoey = afterConfirm.profiles[zoeyWang.id];
+    expect(updatedZoey?.currentSections.Macro).toBe("Macro-201B.2A"); // gitleaks:allow
+
+    // Conflict between Macro and MECENG 208 is completely resolved
+    const diagAfter = autoGenerateSwapsFromPlan({ profile: updatedZachary! });
+    expect(diagAfter.legs.some((l) => l.course === "Macro")).toBe(false);
+  });
+
   it("includes Haas OLR Spring 2027 bidding round 932 seat counts, rules, and new courses", () => {
     expect(OLR_SPRING_2027_RULES.roundId).toBe(932);
     expect(OLR_SPRING_2027_RULES.maxBidPoints).toBe(1000);
