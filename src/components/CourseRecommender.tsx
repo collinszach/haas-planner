@@ -221,15 +221,6 @@ export function CourseRecommender({
     return map;
   }, [profile.plannedCourses, semesterId]);
 
-  const allPlannedByCourseId = useMemo(() => {
-    const map = new Map<string, PlannedCourseRecord>();
-    for (const p of profile.plannedCourses ?? []) {
-      map.set(p.courseId, p);
-      map.set(p.code, p);
-    }
-    return map;
-  }, [profile.plannedCourses]);
-
   const plannedSemesterEntries = useMemo(() => {
     return buildUnifiedPlanEntries(profile, sections).filter(
       (e) => e.semesterId === semesterId && !e.waived,
@@ -373,14 +364,28 @@ export function CourseRecommender({
       }
 
       baseList = targetEntries.map((entry) => {
-        const match = recByCourseId.get(entry.courseId) ?? recByCode.get(entry.code);
-        if (match) {
-          return {
-            ...match,
-            plannedSemesterId: entry.semesterId,
-            isCorePlanned: Boolean(entry.isCore),
-          };
+        const entrySemId = entry.semesterId;
+        // If entry is in current semester, reuse active recommendation if available
+        if (entrySemId === semesterId) {
+          const match = recByCourseId.get(entry.courseId) ?? recByCode.get(entry.code);
+          if (match) {
+            return {
+              ...match,
+              plannedSemesterId: entry.semesterId,
+              isCorePlanned: Boolean(entry.isCore),
+            };
+          }
         }
+
+        const isSemSpring = entrySemId.includes("Spring");
+        const semTermYear =
+          entrySemId === "Y1_Fall"
+            ? "Fall 2026"
+            : entrySemId === "Y1_Spring"
+              ? "Spring 2027"
+              : entrySemId === "Y2_Fall"
+                ? "Fall 2027"
+                : "Spring 2028";
 
         const synthCourse: CatalogCourse = {
           id: entry.courseId,
@@ -389,15 +394,15 @@ export function CourseRecommender({
           name: entry.name,
           units: entry.units,
           instructors: entry.instructors,
-          season: semesterId.includes("Spring") ? "Spring" : "Fall",
-          termYear: semesterId.startsWith("Y1") ? "2027" : "2028",
+          season: isSemSpring ? "Spring" : "Fall",
+          termYear: semTermYear,
           dayLabel: entry.dayLabel ?? (entry.meetings?.[0]?.days?.join("/") ?? ""),
           timeLabel:
             entry.timeLabel ??
             (entry.meetings?.[0]
               ? `${entry.meetings[0].startMin}–${entry.meetings[0].endMin}`
               : ""),
-          format: entry.format ?? "In-Person",
+          format: entry.format ?? (entry.dataSource === "berkeley" ? "Campus" : "In-Person"),
           meetingDates: "",
           part: entry.part ?? "Full",
           meetings: entry.meetings ?? [],
@@ -524,17 +529,20 @@ export function CourseRecommender({
 
   const handleToggleCourse = async (rec: CourseRecommendation) => {
     if (rec.isCorePlanned) return;
-    const existing =
-      plannedByCourseId.get(rec.course.id) ??
-      plannedByCourseId.get(rec.course.code) ??
-      allPlannedByCourseId.get(rec.course.id) ??
-      allPlannedByCourseId.get(rec.course.code);
+    const targetSemesterId = rec.plannedSemesterId ?? semesterId;
+
+    // Only target courses within this target semester
+    const existing = (profile.plannedCourses ?? []).find(
+      (p) =>
+        p.semesterId === targetSemesterId &&
+        (p.courseId === rec.course.id || p.code === rec.course.code),
+    );
     setBusyId(rec.course.id);
     try {
       if (existing) {
         await onRemoveCourse(existing.instanceId);
       } else {
-        await onAddCourse(catalogCourseToPlannedRecord(rec.course, semesterId));
+        await onAddCourse(catalogCourseToPlannedRecord(rec.course, targetSemesterId));
       }
     } finally {
       setBusyId(null);
@@ -892,11 +900,17 @@ export function CourseRecommender({
         ) : (
           filtered.map((rec) => {
             const { course } = rec;
-            const isAdded =
-              plannedByCourseId.has(course.id) ||
-              plannedByCourseId.has(course.code) ||
-              allPlannedByCourseId.has(course.id) ||
-              allPlannedByCourseId.has(course.code);
+            const isAddedInThisSemester =
+              plannedByCourseId.has(course.id) || plannedByCourseId.has(course.code);
+            const isAdded = rec.plannedSemesterId ? true : isAddedInThisSemester;
+
+            const otherSemesterRecord = !rec.plannedSemesterId
+              ? (profile.plannedCourses ?? []).find(
+                  (p) =>
+                    p.semesterId !== semesterId &&
+                    (p.courseId === course.id || p.code === course.code),
+                )
+              : null;
 
             const isCampus = course.dataSource === "berkeley";
 
@@ -930,6 +944,18 @@ export function CourseRecommender({
                             : rec.plannedSemesterId === "Y1_Spring"
                               ? "Y1 Spring"
                               : rec.plannedSemesterId === "Y2_Fall"
+                                ? "Y2 Fall"
+                                : "Y2 Spring"}
+                        </span>
+                      )}
+
+                      {otherSemesterRecord && !isAddedInThisSemester && (
+                        <span className="rounded bg-[#EFF6FF] px-1.5 py-0.5 text-[10.5px] font-medium text-[#003262]">
+                          Planned in {otherSemesterRecord.semesterId === "Y1_Fall"
+                            ? "Y1 Fall"
+                            : otherSemesterRecord.semesterId === "Y1_Spring"
+                              ? "Y1 Spring"
+                              : otherSemesterRecord.semesterId === "Y2_Fall"
                                 ? "Y2 Fall"
                                 : "Y2 Spring"}
                         </span>

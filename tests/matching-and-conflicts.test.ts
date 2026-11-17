@@ -1821,4 +1821,41 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(catEngin270B.dataSource).toBe("berkeley");
     expect(catEngin270B.code).toBe("ENGIN 270B");
   });
+
+  it("preserves planned course semester scoping without swapping terms when adding or viewing classes", () => {
+    const energyCourse = SPRING_2027_COURSES.find((c) => c.code === "MBA212.1")!;
+    expect(energyCourse).toBeDefined();
+
+    // Student plans MBA212.1 in Year 2 Spring
+    const plannedInY2Spring = catalogCourseToPlannedRecord(energyCourse, "Y2_Spring");
+    expect(plannedInY2Spring.semesterId).toBe("Y2_Spring");
+    expect(plannedInY2Spring.instanceId).toBe("Y2_Spring:Spring-MBA212.1");
+
+    const profile = makeProfile({
+      plannedCourses: [plannedInY2Spring],
+    });
+
+    // When viewing Y1 Spring, courses planned strictly in Y1 Spring should be empty
+    const y1SpringPlanned = (profile.plannedCourses ?? []).filter(
+      (p) => p.semesterId === "Y1_Spring",
+    );
+    expect(y1SpringPlanned.length).toBe(0);
+
+    // Verify that adding another course in Y1 Spring does not alter or swap the Y2 Spring plan
+    const corpFin = SPRING_2027_COURSES.find((c) => c.code === "MBA231.1")!;
+    const newY1Plan = catalogCourseToPlannedRecord(corpFin, "Y1_Spring");
+    const updatedPlannedCourses = [...(profile.plannedCourses ?? []), newY1Plan];
+
+    const y2SpringAfter = updatedPlannedCourses.find(
+      (p) => p.code === "MBA212.1" && p.semesterId === "Y2_Spring",
+    );
+    expect(y2SpringAfter).toBeDefined();
+    expect(y2SpringAfter?.instanceId).toBe("Y2_Spring:Spring-MBA212.1");
+
+    const y1SpringAfter = updatedPlannedCourses.find(
+      (p) => p.code === "MBA231.1" && p.semesterId === "Y1_Spring",
+    );
+    expect(y1SpringAfter).toBeDefined();
+    expect(y1SpringAfter?.instanceId).toBe("Y1_Spring:Spring-MBA231.1");
+  });
 });
