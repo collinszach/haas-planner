@@ -985,6 +985,33 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     expect(pricing).toBeDefined();
     expect(pricing?.olrAvailable).toBe(0);
     expect(pricing?.olrCapacity).toBe(74);
+
+    const corpFin = SPRING_2027_COURSES.find((c) => c.code === "MBA231.1");
+    expect(corpFin).toBeDefined();
+    expect(corpFin?.olrRoundId).toBe(932);
+    expect(corpFin?.olrCapacity).toBe(74);
+    expect(corpFin?.olrFilled).toBe(21);
+    expect(corpFin?.olrAvailable).toBe(53);
+    expect(corpFin?.meetings[0]?.room).toBe("N370Chou");
+
+    const impactInvesting = SPRING_2027_COURSES.find((c) => c.code === "MBA292T.9");
+    expect(impactInvesting).toBeDefined();
+    expect(impactInvesting?.olrCapacity).toBe(47);
+    expect(impactInvesting?.olrFilled).toBe(7);
+    expect(impactInvesting?.olrAvailable).toBe(40);
+    expect(impactInvesting?.meetings[0]?.room).toBe("C110 Cheit");
+
+    const haasAtWork = SPRING_2027_COURSES.find((c) => c.code === "MBA290H.1");
+    expect(haasAtWork).toBeDefined();
+    expect(haasAtWork?.olrCapacity).toBe(28);
+    expect(haasAtWork?.olrFilled).toBe(5);
+    expect(haasAtWork?.olrAvailable).toBe(23);
+    expect(haasAtWork?.noAddDrop).toBe(true);
+
+    const selling = SPRING_2027_COURSES.find((c) => c.code === "MBA267.2");
+    expect(selling).toBeDefined();
+    expect(selling?.olrAvailable).toBe(0);
+    expect(selling?.olrFilled).toBe(29);
   });
 
   it("requires 1 Experiential Learning course for graduation and restricts Coordinator flag to designated admins", () => {

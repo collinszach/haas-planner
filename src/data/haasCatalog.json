@@ -4826,8 +4826,8 @@
       "dataSource": "haas",
       "olrRoundId": 932,
       "olrCapacity": 32,
-      "olrFilled": 13,
-      "olrAvailable": 19,
+      "olrFilled": 14,
+      "olrAvailable": 18,
       "courseEvalUrl": "https://olr.haas.berkeley.edu/Eval/CourseEvals?strParams=702:Behavioral+Finance:MBA236F",
       "facultyEvalUrl": "https://olr.haas.berkeley.edu/Eval/FacultyEvals?strParams=10148767:La%20Blanc,%20G."
     },
@@ -6212,7 +6212,7 @@
       "secondaryFunction": "Strategy / Planning",
       "primaryIndustry": "Consulting",
       "secondaryIndustry": "Startup/Entrepreneurship",
-      "notes": "No add/drop · N500Chou",
+      "notes": "No add/drop",
       "isOnline": false,
       "syllabusUrl": null,
       "ccn": null,
@@ -6223,9 +6223,9 @@
       "bidRisk": "high",
       "dataSource": "haas",
       "olrRoundId": 932,
-      "olrCapacity": 30,
+      "olrCapacity": 28,
       "olrFilled": 5,
-      "olrAvailable": 25,
+      "olrAvailable": 23,
       "courseEvalUrl": "https://olr.haas.berkeley.edu/Eval/CourseEvals?strParams=652:Haas%40Work:MBA290H",
       "facultyEvalUrl": "https://olr.haas.berkeley.edu/Eval/FacultyEvals?strParams=10149652:Rochlin,%20D."
     },
@@ -6304,7 +6304,7 @@
           "startMin": 960,
           "endMin": 1140,
           "part": "Block",
-          "room": "Online;  .",
+          "room": "Online; Block week meeting dates; No add/drop.",
           "nonBlockingCore": false
         }
       ],
@@ -6631,7 +6631,7 @@
           "startMin": 585,
           "endMin": 1080,
           "part": "Weekend",
-          "room": "Online",
+          "room": "Online; Unique dates, read course description.",
           "nonBlockingCore": false
         }
       ],
@@ -7747,9 +7747,9 @@
       "bidRisk": "low",
       "dataSource": "haas",
       "olrRoundId": 932,
-      "olrCapacity": 20,
+      "olrCapacity": 21,
       "olrFilled": 12,
-      "olrAvailable": 8,
+      "olrAvailable": 9,
       "courseEvalUrl": "https://olr.haas.berkeley.edu/Eval/CourseEvals?strParams=329:Deep+Tech+Innovation+and+Entrepreneurship:MBA295T",
       "facultyEvalUrl": "https://olr.haas.berkeley.edu/Eval/FacultyEvals?strParams=10495923:Rappaport,%20M."
     },
