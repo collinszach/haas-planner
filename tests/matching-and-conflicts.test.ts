@@ -873,9 +873,9 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
       plannedCourses: [meceng208],
     });
 
-    const zoeyWang = makeProfile({
+    const tzuWang = makeProfile({
       id: "9326d747-84f3-599c-94b9-148191b921fc",
-      fullName: "Zoey Wang",
+      fullName: "Tzu Wang",
       email: "zwangch@berkeley.edu",
       homeCohort: "Axe",
       currentSections: {
@@ -905,9 +905,9 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
       updatedAt: "2026-11-12T00:00:00Z",
     };
 
-    const reqZoey: SwapRequest = {
+    const reqTzu: SwapRequest = {
       id: "39ad56e6-c225-5f06-8066-180f89f6f1f1",
-      userId: zoeyWang.id,
+      userId: tzuWang.id,
       bundleId: null,
       swapType: "single",
       course: "Macro",
@@ -921,16 +921,16 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     };
 
     const matchState: MatchEngineState = {
-      profiles: { [zachary.id]: zachary, [zoeyWang.id]: zoeyWang },
-      requests: [reqZach, reqZoey],
+      profiles: { [zachary.id]: zachary, [tzuWang.id]: tzuWang },
+      requests: [reqZach, reqTzu],
       matches: [
         {
           id: "ce325dad-03fb-42ea-8d4d-13812826b2d9",
           bundleMatchGroupId: null,
           requestAId: reqZach.id,
-          requestBId: reqZoey.id,
+          requestBId: reqTzu.id,
           userAId: zachary.id,
-          userBId: zoeyWang.id,
+          userBId: tzuWang.id,
           swapType: "single",
           course: "Macro",
           userAGivesKey: "Macro-201B.2A", // gitleaks:allow
@@ -961,9 +961,9 @@ describe("30-Minute Grid, 4-Semester Degree Audit & Auto-Swap Generation", () =>
     const updatedZachary = afterConfirm.profiles[zachary.id];
     expect(updatedZachary?.currentSections.Macro).toBe("Macro-201B.1A"); // gitleaks:allow
 
-    // Zoey Wang shifts to Macro-201B.2A (Gold, Mon/Wed 2:00 PM-4:00 PM)
-    const updatedZoey = afterConfirm.profiles[zoeyWang.id];
-    expect(updatedZoey?.currentSections.Macro).toBe("Macro-201B.2A"); // gitleaks:allow
+    // Tzu Wang shifts to Macro-201B.2A (Gold, Mon/Wed 2:00 PM-4:00 PM)
+    const updatedTzu = afterConfirm.profiles[tzuWang.id];
+    expect(updatedTzu?.currentSections.Macro).toBe("Macro-201B.2A"); // gitleaks:allow
 
     // Conflict between Macro and MECENG 208 is completely resolved
     const diagAfter = autoGenerateSwapsFromPlan({ profile: updatedZachary! });
